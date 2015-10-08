@@ -7,27 +7,25 @@ import scala.collection.mutable
  * It is subject to the MIT license bundled with this package in the file LICENSE.txt.
  * Copyright (c) Brian Gawalt, 2015
  */
-class TwoCorpusTextCounter {
+class TextClassifier {
 
   private var numPos: Int = 0
   private var numNeg: Int = 0
   private var posCounts = mutable.HashMap.empty[String, Int]
   private var negCounts = mutable.HashMap.empty[String, Int]
   private var allTokens = mutable.HashSet.empty[String]
-  private var posIntercept: Double = 0.0
-  private var negIntercept: Double = 0.0
 
   def observe(doc: LabelledDocument) {
     if (doc.label) {
       numPos += 1
-      TwoCorpusTextCounter.tokenize(doc.text).foreach(token => {
+      doc.tokens.foreach(token => {
         val count = posCounts.getOrElse(token, 0)
         posCounts(token) = count + 1
         allTokens.add(token)
       })
     } else {
       numNeg += 1
-      TwoCorpusTextCounter.tokenize(doc.text).foreach(token => {
+      TextClassifier.tokenize(doc.text).foreach(token => {
         val count = negCounts.getOrElse(token, 0)
         negCounts(token) = count + 1
         allTokens.add(token)
@@ -35,25 +33,30 @@ class TwoCorpusTextCounter {
     }
   }
 
-  def +(other: TwoCorpusTextCounter) {
+  def +(other: TextClassifier) {
     numPos += other.numPos
     numNeg += other.numNeg
     other.posCounts.iterator.foreach({case (k, v) => posCounts(k) = posCounts(k) + v})
     other.negCounts.iterator.foreach({case (k, v) => negCounts(k) = negCounts(k) + v})
-    // TODO Recalculate intercepts
   }
 
   def predict(text: String): Double = {
     val prior = math.log(numPos) - math.log(numNeg)
-    val tokens = TwoCorpusTextCounter.tokenize(text).toSet
+    val tokens = TextClassifier.tokenize(text).toSet
 
-    for (w <- allTokens) {
-      if (tokens.contains(w)) {
-        
-      }
-    }
-
-    1.0
+    val logNnMinusLogNp = math.log(numNeg + 1) - math.log(numPos + 1)
+    allTokens.foldLeft(0.0)({case (sum, t) =>
+      // log P(word | class 1) - log P(word | class 0)
+      // log [kp/np] - log [kn/nn] = log kp - log kn - log np + log nn
+        val si = if (tokens.contains(t)) {
+            logNnMinusLogNp + math.log(posCounts.getOrElse(t, 0) + 0.5) - 
+              math.log(negCounts.getOrElse(t, 0) + 0.5)
+        } else {
+          logNnMinusLogNp + math.log(numPos - posCounts.getOrElse(t, 0) + 0.5) -
+            math.log(numNeg - negCounts.getOrElse(t, 0) + 0.5)
+        }
+        sum + si
+      }) + prior
   }
 
   def reset() {
@@ -61,14 +64,22 @@ class TwoCorpusTextCounter {
     numNeg = 0
     posCounts = mutable.HashMap.empty[String, Int]
     negCounts = mutable.HashMap.empty[String, Int]
-    posIntercept = 0.0
-    negIntercept = 0.0
+    allTokens = mutable.HashSet.empty[String]
+  }
+
+  def status: String = {
+    s"""Num pos: $numPos,
+       |Num neg: $numNeg,
+       |Num tokens: ${allTokens.size}
+     """.stripMargin
   }
 }
 
-object TwoCorpusTextCounter {
+object TextClassifier {
   def tokenize(text: String): List[String] =
     text.toLowerCase.replaceAll("[^a-z]", " ").split(" ").filter(_.length > 0).toList
 }
 
-case class LabelledDocument(text: String, label: Boolean)
+case class LabelledDocument(text: String, label: Boolean) {
+  val tokens = TextClassifier.tokenize(text).toSet
+}
