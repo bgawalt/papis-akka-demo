@@ -1,0 +1,2 @@
+SBT_OPTS="-Xms1g -Xmx4g -Xss1M -XX:+CMSClassUnloadingEnabled"
+java $SBT_OPTS -jar sbt/sbt-launch.jar "$@"
