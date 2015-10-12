@@ -1,4 +1,4 @@
-name := "papis-spray-demo"
+name := "papis-akka-demo"
 
 version := "master"
 

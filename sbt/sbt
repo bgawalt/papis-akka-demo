@@ -1,2 +1,2 @@
-SBT_OPTS="-Xms1g -Xmx4g -Xss1M -XX:+CMSClassUnloadingEnabled"
+SBT_OPTS="-Xms1g -Xmx4g -Xss1M -XX:+CMSClassUnloadingEnabled -XX:PermSize=300m"
 java $SBT_OPTS -jar sbt/sbt-launch.jar "$@"

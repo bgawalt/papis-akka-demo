@@ -1,4 +1,4 @@
-package com.gawalt.papis_spray_demo
+package com.gawalt.papis_akka_demo
 
 import akka.actor.{ActorRef, Props, ActorSystem, Actor}
 import akka.io.IO
@@ -13,6 +13,7 @@ import scala.collection.mutable
 import spray.routing.RequestContext
 
 import scala.util.{Failure, Success, Try}
+import spray.routing
 
 /**
  * This source file created by Brian Gawalt, 9/9/15.
@@ -31,7 +32,7 @@ object ClassifierServer {
 
     implicit val timeout = Timeout(5.seconds)
 
-    IO(Http) ? Http.Bind(service, interface = "localhost", port = 12345)
+    IO(Http) ? Http.Bind(service, interface = "localhost", port = 8080)
   }
 
 }
@@ -65,9 +66,10 @@ class Librarian extends Actor {
 class ServiceActor(val librarian: ActorRef) extends Actor with HttpService {
 
   def actorRefFactory = context
-  def receive = runRoute(myRoute)
+  def receive = runRoute(newRoute)
 
   val myRoute = {
+    path("hello") {ctx => ctx.complete("Hello!")} ~
     path("predict") { ctx =>
       val text = ctx.unmatchedPath.toString()
       librarian ! PredictMsg(ctx, text)
@@ -87,5 +89,32 @@ class ServiceActor(val librarian: ActorRef) extends Actor with HttpService {
     } ~
     path("status") { ctx => librarian ! StatusMsg(ctx) } ~
     path("reset") { ctx => librarian ! ResetMsg(ctx) }
+  }
+
+  val newRoute: routing.Route = {ctx =>
+    val path = ctx.unmatchedPath.toString()
+    val splitPath = path.split("/").tail
+    splitPath.head match {
+      case "predict" =>
+        if (splitPath.length == 2) librarian ! PredictMsg(ctx, splitPath(1))
+        else ctx.complete(s"Invalid prediction request: ${splitPath.mkString("/")}")
+      case "observe" =>
+        Try({
+          require(splitPath.length == 3,
+            "Provided path doesn't match expected format of '[true, false]/doc_text_underscore")
+          val label = splitPath(1).toBoolean
+          val text = splitPath(2)
+          LabelledDocument(text, label)
+        }) match {
+          case Success(ld) => librarian ! ObserveMsg(ctx, ld)
+          case Failure(f) => ctx.complete(s"ERROR: ${f.getClass.getSimpleName}, ${f.getMessage}")
+        }
+      case "status" => librarian ! StatusMsg(ctx)
+      case "reset" => librarian ! ResetMsg(ctx)
+      case "hello" =>
+        ctx.complete(s"Hello! You requested:\n${splitPath.tail.mkString("\n")}")
+      case _ =>
+        println(s"Unrecognized resource request: /${splitPath.mkString("/")}")
+    }
   }
 }

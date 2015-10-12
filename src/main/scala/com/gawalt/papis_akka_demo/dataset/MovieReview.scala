@@ -1,4 +1,4 @@
-package com.gawalt.papis_spray_demo.dataset
+package com.gawalt.papis_akka_demo.dataset
 
 import scala.util.Try
 

@@ -1,4 +1,4 @@
-package com.gawalt.papis_spray_demo
+package com.gawalt.papis_akka_demo
 
 /**
  * This source file created by Brian Gawalt, 10/7/15.

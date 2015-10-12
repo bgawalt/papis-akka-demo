@@ -1,4 +1,4 @@
-package com.gawalt.papis_spray_demo
+package com.gawalt.papis_akka_demo
 
 import scala.collection.mutable
 
@@ -41,13 +41,17 @@ class TextClassifier {
   }
 
   def predict(text: String): Double = {
-    val prior = math.log(numPos) - math.log(numNeg)
-    val tokens = TextClassifier.tokenize(text).toSet
+    if (numPos == 0 || numNeg == 0) {
+      0.0
+    }
+    else {
+      val prior = math.log(numPos) - math.log(numNeg)
+      val tokens = TextClassifier.tokenize(text).toSet
 
-    val logNnMinusLogNp = math.log(numNeg + 1) - math.log(numPos + 1)
-    allTokens.foldLeft(0.0)({case (sum, t) =>
-      // log P(word | class 1) - log P(word | class 0)
-      // log [kp/np] - log [kn/nn] = log kp - log kn - log np + log nn
+      val logNnMinusLogNp = math.log(numNeg + 1) - math.log(numPos + 1)
+      allTokens.foldLeft(0.0)({case (sum, t) =>
+        // log P(word | class 1) - log P(word | class 0)
+        // log [kp/np] - log [kn/nn] = log kp - log kn - log np + log nn
         val si = if (tokens.contains(t)) {
             logNnMinusLogNp + math.log(posCounts.getOrElse(t, 0) + 0.5) - 
               math.log(negCounts.getOrElse(t, 0) + 0.5)
@@ -57,6 +61,7 @@ class TextClassifier {
         }
         sum + si
       }) + prior
+    }
   }
 
   def reset() {
@@ -77,9 +82,9 @@ class TextClassifier {
 
 object TextClassifier {
   def tokenize(text: String): List[String] =
-    text.toLowerCase.replaceAll("[^a-z]", " ").split(" ").filter(_.length > 0).toList
+    text.toLowerCase.replaceAll("[^a-zA-Z]", " ").split(" ").filter(_.length > 0).toList
 }
 
 case class LabelledDocument(text: String, label: Boolean) {
-  val tokens = TextClassifier.tokenize(text).toSet
+  lazy val tokens = TextClassifier.tokenize(text).toSet
 }
