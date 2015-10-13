@@ -8,6 +8,30 @@ You shouldn't need more than a Java Runtime Environment to make use of this tool
  `java -version` from your command prompt tells you have version 1.7 or higher, I bet you'll be
 fine.
 
+# Repository Highlights
+
+Use this repo as a way to get familiar with building a web API using an actor framework. Actors
+are great! They make it quite straight-forward to reason about concurrency without stumbling into
+false-sharing and other common pitfalls. The major code components to look at are:
+
+* [ClassifierServer.scala](src/main/scala/com/gawalt/papis_akka_demo/ClassifierServer.scala) -
+this file describes what socket the web API should listen to (`ClassifierServer.main()`),
+how requests should be parsed and handled (`ServiceActor.route`), where we should maintain state
+information about the model itself (`class Librarian`), and that stateful actor should be sent
+requests to process (the container classes `PredictMsg`, `ObserveMsg`, `StatusMsg`, `ResetMsg`).
+* [ClassifierClient.scala](src/main/scala/com/gawalt/papis_akka_demo/ClassifierClient.scala) -
+this is a simple routine to test out a particular text classification task. Movie review summaries,
+for either five-star or one-star appraisals, are read in from the TSV files kept in `resources/`,
+and sent off to the modelling service to be studied and classified. Note that it in generating
+predictions for these makes no reference to any class outside of the standard Scala library --
+it's only hitting the web API provided by a running instance of `ClassifierServer`.
+* [TextClassifier.scala](src/main/scala/com/gawalt/papis_akka_demo/TextClassifier.scala) --
+a simple Naive Bayes classifier for documents, treating each distinct word token as a
+[Bernoulli random variable](https://en.wikipedia.org/wiki/Bernoulli_distribution) when conditioned
+on the document class. A mildly-biased estimate of each word's Bernoulli parameter is made
+by tracking the number of documents seen of each class, and the number of times each word token
+has appeared in documents of each class.
+
 # Starting up the service
 
 This codebase runs through [SBT](http://www.scala-sbt.org). To launch the service, we'll pass SBT
@@ -127,6 +151,109 @@ ever learned. No positive examples, no negative examples, no language model. A s
 returns the new zeroed-out status:
 
 ![reset request](/doc/fig/reset_request.png)
+
+# Evaluating the service
+
+To let you try out the classifier on a large, real-world dataset, I've contrived a classification
+problem: from the headline alone, can the model learn the difference between 1-star and 5-star
+reviews?
+
+The Stanford Network Analysis Project hosts a
+[dataset of movie reviews](https://snap.stanford.edu/data/web-Movies.html) posted to Amazon,
+curated by Julian McAuley and Jure Leskovec. I've stripped each review down to its `review/score`
+and `review/summary` components, formatted to accord with the service API, and packaged a
+subsample of them in this repo:
+
+```
+$ head -5 resources/*
+==> resources/five_star_reviews_subset.tsv <==
+5.0 this_movie_needed_to_be_made
+5.0 a_rock_n_roll_history_lesson
+5.0 a_musthave_video_if_you_grew_up_in_the_s_or_s
+5.0 if_you_like_doowop_you_gotta_have_this_dvd
+5.0 professional_excellence```
+
+```==> resources/one_star_reviews_subset.tsv <==
+1.0 this_is_junk_stay_away
+1.0 truly_bad_but_not_the_worst
+1.0 should_be_locked_in_chateau_dif
+1.0 the_count_of_monte_cristo
+1.0 a_disappointment_for_book_fans
+```
+
+The `main()` routine in `com.gawalt.papis_akka_demo.ClassifierClient` alternates sending a
+five-star review, then a one-star review, bouncing back and forth and keeping basic parity.
+Before observing and incorporating a new review into the model, though, we can first ask the
+model to make a prediction of that review's label. `ClassifierClient` spins through 20,000
+reviews, keeps track whether was incorrectly predicted, then bins that sequence of predictions
+into buckets of size 500. The number of errors in each bucket is then printed to the screen.
+
+Once we're sure that the service is running in another process, we can run the evaluation via SBT:
+
+```
+$ sbt/sbt 'runMain com.gawalt.papis_akka_demo.ClassifierClient resources/five_star_reviews_subset.tsv resources/one_star_reviews_subset.tsv'
+[info] Set current project to papis-akka-demo (in build file:/Users/brian/papis-akka-demo/)
+[info] Running com.gawalt.papis_akka_demo.ClassifierClient resources/five_star_reviews_subset.tsv resources/one_star_reviews_subset.tsv
+One-star predict: ArrayIndexOutOfBoundsException:	1
+   [... several more such exceptions are thrown ...]
+One-star update: ArrayIndexOutOfBoundsException:	1
+333, 235, 230, 214, 181, 231, 225, 221, 226, 220, 197, 219, 148, 125, 212, 198, 206, 207, 201, 143, 66, 184, 192, 219, 176, 182, 161, 188, 196, 200, 191, 206, 164, 185, 200, 191, 179, 183, 131, 187,
+Not interrupting system thread Thread[Keep-Alive-Timer,8,system]
+[success] Total time: 46 s, completed Oct 12, 2015 11:19:14 PM
+```
+
+Forty-six second runtime -- not bad! (There's a handful of `ArrayIndexOutOfBoundsException`s;
+one's triggered whenever a review is missing and only the score is present.)
+
+Plotting this error rate, we can see an achingly slow but undeniable improvement in the model's
+accuracy as it accumulates more data:
+
+QQQ PUT PLOT HERE
+
+Checking the status of the model, we can see that it's learned about 15,000 word tokens
+after viewing around 20,000 review summaries:
+
+```$ curl http://localhost:12345/status/
+   Num pos: 9993,
+   Num neg: 9993,
+   Num tokens: 15240```
+
+So it's not surprising that it's slow to get a handle on what's good and what's bad: a giant
+share of the documents are feeding it words it's never seen before. In fact, if we cheat and
+re-run the `ClassifierClient.main()` routine again without resetting the mode -- by letting the
+model make predictions on reviews that already knows are coming -- we can see that error rates
+immediately drop below 1%:
+
+QQQ PUT OTHER PLOT HERE
+
+Woe betide thee, o over-fitter!
+
+# Concurrency
+
+On my MacBook Pro, we can see the `ClassifierClient` experiment issue 20,000 sequential predict and
+observation calls in 46 seconds, putting a lower bound on throughput at around 430
+predict-then-observe pairs per second, or about 2 milliseconds per predict-observe pair. That's
+not so bad, given that anyone using a website that relies on this service is probably in for
+75-100 milliseconds of render time anyway -- another 2 ms isn't breaking the bank.
+
+But the whole appeal of the Actor model is to try and expose concurrency in an easy-to-reason-about
+way, so that the throughput can be made not just "good enough" but genuinely optimal. The current
+architecture isn't set up to truly do that.
+
+It's true that a new Actor is spun up to handle each request sent to the service API.
+So things like parsing the request paths, validating them, and preparing the arguments for the
+model can happen in parallel if multiple users are issuing concurrent calls.
+
+But unfortunately, the whole operation bottlenecks when it's time to actually use the model itself.
+Interesting we want to do involves interacting with the `librarian` actor instantiated on line
+31 of `ClassifierServer.scala`. This actor holds the text classifier as part of its private state.
+Every prediction requested or update issued has to be fully completed before a `librarian` can
+move onto the next one in line. That's a huge portion of our computational load that's
+resistant to parallelization, setting an awful low
+[Amdahl's Law](https://en.wikipedia.org/wiki/Amdahl%27s_law) performance ceiling.
+
+Keep your eyes on this space, though -- I have a possible alternative architecture in mind that
+could help address this.
 
 # PAPIs 2015
 

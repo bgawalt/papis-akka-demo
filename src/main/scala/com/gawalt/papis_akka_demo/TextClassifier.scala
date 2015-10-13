@@ -45,7 +45,7 @@ class TextClassifier {
       0.0
     }
     else {
-      val prior = math.log(numPos) - math.log(numNeg)
+      val prior = math.log(numPos + 0.5) - math.log(numNeg + 0.5)
       val tokens = TextClassifier.tokenize(text).toSet
 
       val logNnMinusLogNp = math.log(numNeg + 1) - math.log(numPos + 1)

@@ -67,12 +67,8 @@ object ClassifierClient {
       }
     }
 
-
-
     predictionErrors.grouped(500).map(_.count(b => b)).foreach(k => print(s"$k, "))
     println("")
-
-
 
   }
 
