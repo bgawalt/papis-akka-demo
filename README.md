@@ -208,7 +208,7 @@ one's triggered whenever a review is missing and only the score is present.)
 Plotting this error rate, we can see an achingly slow but undeniable improvement in the model's
 accuracy as it accumulates more data:
 
-QQQ PUT PLOT HERE
+![learning curve](doc/fig/classifier_results.png)
 
 Checking the status of the model, we can see that it's learned about 15,000 word tokens
 after viewing around 20,000 review summaries:
@@ -219,12 +219,13 @@ after viewing around 20,000 review summaries:
    Num tokens: 15240```
 
 So it's not surprising that it's slow to get a handle on what's good and what's bad: a giant
-share of the documents are feeding it words it's never seen before. In fact, if we cheat and
-re-run the `ClassifierClient.main()` routine again without resetting the mode -- by letting the
-model make predictions on reviews that already knows are coming -- we can see that error rates
-immediately drop below 1%:
+share of the documents are feeding it words it's never seen before. 
 
-QQQ PUT OTHER PLOT HERE
+Testing this intuition, if we *cheat* and re-run the `ClassifierClient.main()` routine again without
+resetting the mode -- by letting the model make predictions on reviews that it's already learned 
+about-- and we can see that error rates immediately drop below 1%:
+
+![overfit learning curve](doc/fig/classifier_cheat_results.png)
 
 Woe betide thee, o over-fitter!
 
