@@ -12,12 +12,14 @@ import scala.util.{Failure, Success, Try}
 object ClassifierClient {
 
   def getPrediction(review: String): Try[Boolean] = Try({
-    val url = s"http://localhost:8080/predict/${review.replaceAll("[^a-zA-Z]", "")}"
+    val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/predict" +
+      s"/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n").toDouble > 0
   })
   
   def issueUpdate(label: Boolean, review: String) : Try[String] = Try({
-    val url = s"http://localhost:8080/observe/$label/${review.replaceAll("[^a-zA-Z]", "")}"
+    val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/observe" +
+      s"/$label/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n")
   })
 
@@ -36,63 +38,41 @@ object ClassifierClient {
     val predictionErrors = mutable.Buffer.empty[Boolean]
 
     while (fiveStarLines.hasNext && oneStarLines.hasNext) {
-      val fiveReview = fiveStarLines.next().split("\t")(1).trim
-      getPrediction(fiveReview) match {
+      val fiveReview = Try(fiveStarLines.next().split("\t")(1).trim)
+      fiveReview.flatMap(rev => getPrediction(rev)) match {
         case Success(pred) =>
           predictionErrors.append(!pred) // It's an error if model predicted "false"
         case Failure(f) =>
           println(s"Five-star predict: ${f.getClass.getSimpleName}:\t${f.getMessage}")
       }
 
-      issueUpdate(true, fiveReview) match {
+      fiveReview.flatMap(rev => issueUpdate(true, rev)) match {
         case Success(status) => status
         case Failure(f) =>
           println(s"Five-star update: ${f.getClass.getSimpleName}:\t${f.getMessage}")
       }
 
-      val oneReview = oneStarLines.next().split("\t")(1).trim
-      getPrediction(oneReview) match {
+      val oneReview = Try(oneStarLines.next().split("\t")(1).trim)
+      oneReview.flatMap(line => getPrediction(line)) match {
         case Success(pred) =>
           predictionErrors.append(pred) // It's an error if model predicted "true"
         case Failure(f) =>
           println(s"One-star predict: ${f.getClass.getSimpleName}:\t${f.getMessage}")
       }
 
-      issueUpdate(false, oneReview) match {
+      oneReview.flatMap(line => issueUpdate(false, line)) match {
         case Success(status) => status
         case Failure(f) =>
           println(s"One-star update: ${f.getClass.getSimpleName}:\t${f.getMessage}")
       }
     }
 
-    val fiveStarRepeat = io.Source.fromFile(args(0)).getLines()
-    val oneStarRepeat = io.Source.fromFile(args(1)).getLines()
 
-    val repeatErrors = mutable.Buffer.empty[Boolean]
-
-    while (fiveStarRepeat.hasNext && oneStarRepeat.hasNext) {
-      val fiveReview = fiveStarRepeat.next().split("\t")(1).trim
-      getPrediction(fiveReview) match {
-        case Success(pred) =>
-          repeatErrors.append(!pred) // It's an error if model predicted "false"
-        case Failure(f) =>
-          println(s"Five-star predict: ${f.getClass.getSimpleName}:\t${f.getMessage}")
-      }
-
-      val oneReview = oneStarRepeat.next().split("\t")(1).trim
-      getPrediction(oneReview) match {
-        case Success(pred) =>
-          repeatErrors.append(pred) // It's an error if model predicted "true"
-        case Failure(f) =>
-          println(s"One-star predict: ${f.getClass.getSimpleName}:\t${f.getMessage}")
-      }
-    }
 
     predictionErrors.grouped(500).map(_.count(b => b)).foreach(k => print(s"$k, "))
     println("")
 
-    repeatErrors.grouped(500).map(_.count(b => b)).foreach(k => print(s"$k, "))
-    println("")
+
 
   }
 

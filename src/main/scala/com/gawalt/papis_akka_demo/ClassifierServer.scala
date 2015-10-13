@@ -22,6 +22,8 @@ import spray.routing
  */
 object ClassifierServer {
 
+  val SERVICE_PORT = 12345
+
   def main(args: Array[String]) {
 
     implicit val system = ActorSystem("papis-akka-demo")
@@ -32,7 +34,7 @@ object ClassifierServer {
 
     implicit val timeout = Timeout(5.seconds)
 
-    IO(Http) ? Http.Bind(service, interface = "localhost", port = 8080)
+    IO(Http) ? Http.Bind(service, interface = "localhost", port = SERVICE_PORT)
   }
 
 }
@@ -66,32 +68,9 @@ class Librarian extends Actor {
 class ServiceActor(val librarian: ActorRef) extends Actor with HttpService {
 
   def actorRefFactory = context
-  def receive = runRoute(newRoute)
+  def receive = runRoute(route)
 
-  val myRoute = {
-    path("hello") {ctx => ctx.complete("Hello!")} ~
-    path("predict") { ctx =>
-      val text = ctx.unmatchedPath.toString()
-      librarian ! PredictMsg(ctx, text)
-    } ~
-    path("observe") { ctx =>
-        Try({
-          val splitPath = ctx.unmatchedPath.toString().split("/")
-          require(splitPath.lengthCompare(2) == 0,
-            "Provided path doesn't match expected format of '[true, false]/doc_text_underscore")
-          val label = splitPath(0).toBoolean
-          val text = splitPath(1)
-          LabelledDocument(text, label)
-        }) match {
-          case Success(ld) => librarian ! ObserveMsg(ctx, ld)
-          case Failure(f) => ctx.complete(s"ERROR: ${f.getClass.getSimpleName}, ${f.getMessage}")
-        }
-    } ~
-    path("status") { ctx => librarian ! StatusMsg(ctx) } ~
-    path("reset") { ctx => librarian ! ResetMsg(ctx) }
-  }
-
-  val newRoute: routing.Route = {ctx =>
+  val route: routing.Route = {ctx =>
     val path = ctx.unmatchedPath.toString()
     val splitPath = path.split("/").tail
     splitPath.head match {
@@ -101,7 +80,7 @@ class ServiceActor(val librarian: ActorRef) extends Actor with HttpService {
       case "observe" =>
         Try({
           require(splitPath.length == 3,
-            "Provided path doesn't match expected format of '[true, false]/doc_text_underscore")
+            "Provided path doesn't match expected format of '[true, false]/doc_text_underscore'")
           val label = splitPath(1).toBoolean
           val text = splitPath(2)
           LabelledDocument(text, label)
@@ -115,6 +94,7 @@ class ServiceActor(val librarian: ActorRef) extends Actor with HttpService {
         ctx.complete(s"Hello! You requested:\n${splitPath.tail.mkString("\n")}")
       case _ =>
         println(s"Unrecognized resource request: /${splitPath.mkString("/")}")
+        ctx.complete(s"Unrecognized resource request: /${splitPath.mkString("/")}")
     }
   }
 }

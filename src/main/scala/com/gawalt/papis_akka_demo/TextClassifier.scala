@@ -86,5 +86,5 @@ object TextClassifier {
 }
 
 case class LabelledDocument(text: String, label: Boolean) {
-  lazy val tokens = TextClassifier.tokenize(text).toSet
+  lazy val tokens = TextClassifier.tokenize(text).filter(_.length > 2).toSet
 }
