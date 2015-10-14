@@ -11,12 +11,31 @@ import scala.util.{Failure, Success, Try}
  */
 object ClassifierClient {
 
+  /**
+   * Attempts to contact the text classification service running on localhost at the port
+   * defined by the field ClassifierServer.SERVICE_PORT, and asks it to provide a score.
+   * The more positive that score, the more likely it is that the document comes from the
+   * positive class.
+   * @param review The document whose positivity you'd like to predict, formatted in the
+   *               underscores_for_spaces_and_only_letters style
+   * @return If successful, a log-posterior ratio score indicating how probable it is the document
+   *         belongs in the positive class.
+   */
   def getPrediction(review: String): Try[Boolean] = Try({
     val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/predict" +
       s"/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n").toDouble > 0
   })
-  
+
+  /**
+   * Attempts to contact the text classification service running on localhost at the port
+   * defined by the field ClassifierServer.SERVICE_PORT, and asks it to update its classification
+   * model by taking the provided observation into account.
+   * @param label true, if this movie review is a five-star review; else false
+   * @param review The movie review text you're observing, formatted in the
+   *               underscores_for_spaces_and_only_letters style
+   * @return If successful, the classification model's status, post-update
+   */
   def issueUpdate(label: Boolean, review: String) : Try[String] = Try({
     val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/observe" +
       s"/$label/${review.replaceAll("[^a-zA-Z]", "")}"
@@ -67,7 +86,13 @@ object ClassifierClient {
       }
     }
 
-    predictionErrors.grouped(500).map(_.count(b => b)).foreach(k => print(s"$k, "))
+    println("\nReview ID Bin\tAccuracy over Bin")
+    predictionErrors.grouped(500) // Group errors into consecutive bins of 500
+      .map(es => (es.count(b => b), es.length))  // Count num. of errors and total num. predictions
+      .zipWithIndex          // Get the index of each bin
+      .foreach({case ((numErrors, numTotal), binIdx) =>
+        println(s"Reviews ${500*binIdx + 1} - ${500*binIdx + numTotal}:\t" + // Bin ranges
+          s"${numErrors.toDouble/numTotal}")})  // Bin accuracy
     println("")
 
   }
