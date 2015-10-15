@@ -60,7 +60,7 @@ and to apply that learned model to new documents you ask it to score.
 Once it's up and running, you can start interacting with the service via HTTP requests to five 
 paths: `hello`, `observe`, `predict`, `status`, and `reset`.
 
-## http://localhost:12345/hello/some_text/to_echo
+### http://localhost:12345/hello/some_text/to_echo
 
 This path provides some nice "hello, world" functionality to test the responsiveness of the
 system. Whatever you pass as a path after `hello/` will be split by slashes and returned, one line
@@ -80,7 +80,7 @@ unsupported path, along with the terminal running the service application:
 
 ![unsupported path](/doc/fig/unmatched_path.png)
 
-## http://localhost:12345/observe/[label]/text_of_known_document
+### http://localhost:12345/observe/[label]/text_of_known_document
 
 For the classifier to be of any use, you're going to have to provide it at least a few examples
 from each of the two classes. This path lets you pass documents with known class labels for the
@@ -105,7 +105,7 @@ Breaking this format will return an error message to the requesting client:
 
 ![bad observe request](/doc/fig/bad_observe_request.png)
 
-## http://localhost:12345/predict/words_from_a_doc_of_unknown_class
+### http://localhost:12345/predict/words_from_a_doc_of_unknown_class
 
 To now apply the knowledge accumulated in the classifier with all those `observe` calls, there's
 a request path by which you can score new, unlabelled documents. Format the document similar to
@@ -137,14 +137,14 @@ As with `observe`, deviating from this request pattern just returns an error:
 
 ![bad predict request](/doc/fig/bad_predict_request.png)
 
-## http://localhost:12345/status
+### http://localhost:12345/status
 
 Following this path will return information about how many documents the classifier has observed
 up to this point, and the number of distinct word tokens it's learned about:
 
 ![status request](/doc/fig/status_request.png)
 
-## http://localhost:12345/reset
+### http://localhost:12345/reset
 
 This path allows to reset the classifier back to it's initial state: it forgets everything it's
 ever learned. No positive examples, no negative examples, no language model. A successful request
@@ -171,9 +171,9 @@ $ head -5 resources/*
 5.0 a_rock_n_roll_history_lesson
 5.0 a_musthave_video_if_you_grew_up_in_the_s_or_s
 5.0 if_you_like_doowop_you_gotta_have_this_dvd
-5.0 professional_excellence```
+5.0 professional_excellence
 
-```==> resources/one_star_reviews_subset.tsv <==
+==> resources/one_star_reviews_subset.tsv <==
 1.0 this_is_junk_stay_away
 1.0 truly_bad_but_not_the_worst
 1.0 should_be_locked_in_chateau_dif
@@ -191,15 +191,23 @@ into buckets of size 500. The number of errors in each bucket is then printed to
 Once we're sure that the service is running in another process, we can run the evaluation via SBT:
 
 ```
-$ sbt/sbt 'runMain com.gawalt.papis_akka_demo.ClassifierClient resources/five_star_reviews_subset.tsv resources/one_star_reviews_subset.tsv'
-[info] Set current project to papis-akka-demo (in build file:/Users/brian/papis-akka-demo/)
+$ sbt/sbt 'runMain com.gawalt.pakka_demo.ClassifierClient resources/five_star_reviews_subset.tsv resources/one_star_reviews_subset.tsv'
+Java HotSpot(TM) 64-Bit Server VM warning: ignoring option PermSize=300m; support was removed in 8.0
+[info] Set current project to papis-akka-demo (in build file:/Users/bgawalt/papis-akka-demo/)
+[info] Compiling 1 Scala source to /Users/bgawalt/papis-akka-demo/target/scala-2.10/classes...
 [info] Running com.gawalt.papis_akka_demo.ClassifierClient resources/five_star_reviews_subset.tsv resources/one_star_reviews_subset.tsv
 One-star predict: ArrayIndexOutOfBoundsException:	1
-   [... several more such exceptions are thrown ...]
 One-star update: ArrayIndexOutOfBoundsException:	1
-333, 235, 230, 214, 181, 231, 225, 221, 226, 220, 197, 219, 148, 125, 212, 198, 206, 207, 201, 143, 66, 184, 192, 219, 176, 182, 161, 188, 196, 200, 191, 206, 164, 185, 200, 191, 179, 183, 131, 187,
-Not interrupting system thread Thread[Keep-Alive-Timer,8,system]
-[success] Total time: 46 s, completed Oct 12, 2015 11:19:14 PM
+ [... the other ArrayIndex exceptions... ]
+One-star predict: ArrayIndexOutOfBoundsException:	1
+One-star update: ArrayIndexOutOfBoundsException:	1
+
+Review ID Bin	Accuracy over Bin
+Reviews 1 - 500:	0.666
+Reviews 501 - 1000:	0.47
+  [... the other bin accuracies ...]
+Reviews 19001 - 19500:	0.262
+Reviews 19501 - 19986:	0.38477366255144035
 ```
 
 Forty-six second runtime -- not bad! (There's a handful of `ArrayIndexOutOfBoundsException`s;
@@ -208,7 +216,7 @@ one's triggered whenever a review is missing and only the score is present.)
 Plotting this error rate, we can see an achingly slow but undeniable improvement in the model's
 accuracy as it accumulates more data:
 
-QQQ PUT PLOT HERE
+![learning curve](doc/fig/classifier_results.png)
 
 Checking the status of the model, we can see that it's learned about 15,000 word tokens
 after viewing around 20,000 review summaries:
@@ -219,12 +227,13 @@ after viewing around 20,000 review summaries:
    Num tokens: 15240```
 
 So it's not surprising that it's slow to get a handle on what's good and what's bad: a giant
-share of the documents are feeding it words it's never seen before. In fact, if we cheat and
-re-run the `ClassifierClient.main()` routine again without resetting the mode -- by letting the
-model make predictions on reviews that already knows are coming -- we can see that error rates
-immediately drop below 1%:
+share of the documents are feeding it words it's never seen before. 
 
-QQQ PUT OTHER PLOT HERE
+Testing this intuition, if we *cheat* and re-run the `ClassifierClient.main()` routine again without
+resetting the mode -- by letting the model make predictions on reviews that it's already learned 
+about-- and we can see that error rates immediately drop below 1%:
+
+![overfit learning curve](doc/fig/classifier_cheat_results.png)
 
 Woe betide thee, o over-fitter!
 
