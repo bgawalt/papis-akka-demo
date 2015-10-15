@@ -1,7 +1,7 @@
 # papis-akka-demo
 
 Hello! This repository is a mild demonstration of deploying a predictive model, accessible through
-an HTTP API, can be built using the actor model. It makes use of Scala's Akka and Spray libraries
+an HTTP API, built using an actor framework. It makes use of Scala's Akka and Spray libraries
 to let you train and utilize a simple, two-class text classifier.
 
 You shouldn't need more than a Java Runtime Environment to make use of this toolset -- if calling
