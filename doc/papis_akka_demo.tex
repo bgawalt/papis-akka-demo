@@ -12,14 +12,32 @@
 % Slides 2 - 6
 
 \begin{abstract}
-The majority of data science and machine learning tutorials focus on generating models: assembling a dataset; splitting the data into training, validation, and testing subsets; building the model; and demonstrating its generalizability. But when it's time to repeat the analogous steps when using the model in production, issues of high latency can arise. To an end user, the cost of too much time spent featurizing raw data and evaluating a model over features can wind up erasing any gains a smarter prediction can offer. Exposing concurrency in these model-usage steps, and then capitalizing on that concurrency, can cut down on that latency cost. This work describes how the Actor framework can be used to bring a predictive model to a real-time setting. Two case-study examples are described: a simple text classifier (with accompanying code), and a live deployment built for the freelancing platform Upwork.
+The majority of data science and machine learning tutorials focus on generating models: assembling a dataset; splitting the data into training, validation, and testing subsets; building the model; and demonstrating its generalizability. But when it's time to repeat the analogous steps when using the model in production, issues of high latency can arise. To an end user, the cost of too much time spent featurizing raw data and evaluating a model over features can wind up erasing any gains a smarter prediction can offer. 
+
+Exposing concurrency in these model-usage steps, and then capitalizing on that concurrency, can cut down on that latency cost. This work describes how the Actor framework can be used to bring a predictive model to a real-time setting. Two case-study examples are described: a simple text classifier (with accompanying code), and a live deployment built for the freelancing platform Upwork.
 \end{abstract}
 
-\section{Machine learning in production}
-% Slides 7-9
-When a firm hires a machine learning specialist, you can be pretty sure that the firm would like to start generating predictions about the future. Accurate predictions, to the extent possible. Whose face is appearing in this recently uploaded photograph? Which of these credit card transactions are fraudulent? Who among our inactive users is likely to log back in, should we send them a "We Miss You!" email?
+\section{The practice of machine learning}
 
-The internet is chock full of resources to help someone hone their skills in answering these challenges. Coursera courses can provide excellent primer material on up through graduate-level instruction.  Kaggle contests let one practice those learned techniques on real data, making real predictions. To move oneself to the state of the art, one can follow the proceedings at NIPS, KDD, ICML, SIGIR -- plenty of venues to describe new modeling techniques and algorithms.
+Imagine a firm has brought a specialist in machine learning onto a new project. The firm wants a product which can provide a quality prediction about some regular event happening in the course of the firm's business. The specialist is handed a pile of relevant historical data, and asked: Among the new customers seen for the first time today, who's likeliest to be a big spender? Or: of all the credit card transactions processed in the last hour, which are likeliest to be fraudulent? Or: when a customer enters a query into our website's Search tool, what results should we be returning?
+
+The specialist starts with the first of two phases of the work. They have to identify a model that can be expected to fit predictions over both the historical data and in a way that will generalize to new data. The familiar version of the steps involved in supervised learning: 
+
+\begin{enumerate}
+\item Identify raw source data, and break it down into distinct observations of the pattern you're trying to learn and predict.
+\item For each raw observation, produce a $p$-dimensional vector of features and a scalar label.
+\item Split this collection into disjoint training, validation, and testing sets.
+\item For each candidate model (and/or each hyperparameter value of the model/models), fit model parameters to the training vectors and labels, and evaluate the goodness of fit by performing prediction of the validation labels given the validation vectors
+\item Select the model whose validation-set predictions came closest to the mark. Use it to then make predictions over the test set. Report this test set performance to vouch for the predictive model you've generated and selected.
+\end{enumerate}
+
+Note that this first phase doesn't carry an explicit component of \emph{time urgency}. All else equal, a typical specialist will prefer that the full sequence complete in six hours, and six minutes is better still. But if it takes six days instead, nothing \emph{fundamental} to this first phase has been threatened. The task -- finding a model that generates acceptably accurate predictions on new data -- is accomplished.
+
+The second phase is to actually put the model's capabilities to use. Given new events and observation that need scoring by the model -- is this new customer likely to be a big spender? is this credit card legitimate? -- the above featurization and scoring routines need to be run. And in this real-world deployment, it's likely that there are also some strict constraints on how long it takes this pipeline to run. All predictions go stale, and some use cases need to act on a prediction within milliseconds of the event itself.
+
+There are some cases where these latency constraints aren't binding. The exact same featurization and scoring routines used to generate and validate the model can be re-run fast enough on new data to produce useful predictions. But this work focuses on the cases where timeliness requirements exclude the use of the same software developed in the first phase as the backbone of the second phase. What can a lone machine learning specialist do to retool their pipeline to run in a production environment?
+
+
 
 The basic 
 
