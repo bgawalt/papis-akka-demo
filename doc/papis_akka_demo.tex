@@ -3,7 +3,6 @@
 
 \begin{document}
 
-% Slide 1
 \title{Deploying predictive models with the Actor framework}
 \author{Brian Gawalt \\
 Upwork, Inc. \\
@@ -11,8 +10,6 @@ Upwork, Inc. \\
 }
 
 \maketitle
-
-% Slides 2 - 6
 
 \begin{abstract}
 The majority of data science and machine learning tutorials focus on generating models: assembling a dataset; splitting the data into training, validation, and testing subsets; building the model; and demonstrating its generalizability. But when it's time to repeat the analogous steps when using the model in production, issues of high latency or low throughput can arise. To an end user, the cost of too much time spent featurizing raw data and evaluating a model over features can wind up erasing any gains a smarter prediction can offer. 
@@ -68,6 +65,27 @@ From here, this paper presents a case study where an Actor framework was key to 
 
 \section{Case Study: Predicting worker availability at Upwork}
 
-tk tk
+Upwork is an online labor platform, connecting freelancers and clients for internet-enabled remote work. There are several patterns for how these work arrangements are struck\footnote{Freelancers can send proposals for a client's publicly posted job opening; groups of freelancers form agencies to share many client workloads; clients and freelancers, already working together outside the platform, moving their relationship onto Upwork to take advantage of the site's payment processing, escrow, or other services}, but one important avenue involves a client using the platform's search engine to discover new freelancers they think would be well suited to the project the client has in mind.
+
+When the client issues a query, e.g., ``java developer'', ``restaurant menu design'', ``paralegal'', they expect to see a result set filled with freelancers with relevant experience who are likely to perform well on a new assignment. The client can then invite any of these freelancers to interview for an open position.\footnote{Upwork sees the two actions happen in both orders. Sometimes, clients post a job opening, then go searching for freelancers to invite to interview; other times, the client starts by searching and browsing freelancer profiles, and creates the job post once they see someone they'd like to work with.}
+
+This adds a third requirement to the query's result set: listed freelancers should not only be relevant and high-performing, they should also be receptive to an interview invitation at the time of the query. If the system returns a list of the same ten excellent freelancers are returned for every search for ``wordpress template,'' it's a recipe for those ten freelancers being deluged with opportunities they're to busy to fill (and for the freelancers ranked just outside that top ten being unreasonably starved for job invitations).
+
+\subsection{The predictive model}
+
+If the system should only show freelancers available to interview, how should we estimate freelancer availability? This question can be gently reformulated into a question of binary classification: ``If Freelancer X were to receive an invitation to interview right now, does their recent use of the site suggest they would accept that invitation, or would they instead reject or ignore it?''
+
+
+
+
 
 \end{document}
+
+
+
+
+
+
+
+
+
