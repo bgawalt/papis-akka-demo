@@ -90,8 +90,26 @@ The raw materials, and derived features, came in four main varieties:
 
 These raw materials (along with a few other sources) could be harvested from three services: a Greenplum relational database for assembling job application and hours-worked data, and an Amazon S3 bucket for the server logs. The user-profile information was an interesting case: the historical state of the profile was logged to a table in Greenplum with each invitation, but a freelancer's present profile state required a call to an internal service's REST API.
 
-Assembling these feature vectors and performing a training-validation-testing split led to a model with an AUC metric of around 0.81. This outperformed the existing heuristic's accuracy sufficiently, and the model was deemed ready for production use.
+Assembling these feature vectors and performing a training-validation-testing split led to a model with a test-set AUC metric of around 0.81. This sufficiently outperformed the existing heuristic's accuracy, and the model was deemed ready for production use. Freelancers would start receiving scores from the model, putting them into buckets of low, medium, and high availability (i.e., high propensity to accept an invitation to interview at this time).
 
+\subsection{Throughput constraints in production}
+
+An interesting aspect of this modeling task is that hour to hour, any individual freelancer's availability score might swing considerably. Someone who looked dormant three hours ago could decide to log back onto Upwork and start engaging in eager-for-work behavior, sending out job applications and polishing their profile. Another freelancer's behavior might cause a sudden transition from looks-available to looks-overbooked. The more frequently each freelancer could be scored, the more faith Upwork could have that the bucketing used by the search engine was using reliable information. Keeping freshness of the raw material data under four hours was considered a reasonable goal.
+
+Generating those scores meant providing the routine with those four families of raw material. When developing the model using historical data, all four could be gathered and processed in bulk, in advance of the featurization and scoring routines. In a production setting, this remained the case for data from S3 and Greenplum: all that relevant information, for all registered freelancers, could be collected in under an hour. 
+
+However, user profiles posed a challenge: given other demands placed on it by other Upwork.com systems, the internal user profile service could only afford to return one user profile every 20 milliseconds to the availability scorer. Any more rapid than that threatened the health of the service. That placed a maximum of 4.3 million scores to be produced per day, one for each up-to-date profile request. With six million total registered freelancers, this put the squeeze on the preliminary goal of every-freelancer, every-four-hours.
+
+\subsection{Concurrency under the Actor model}
+
+A direct re-use of the routines in the model generation software would have involved: 
+
+\begin{enumerate}
+\item bulk collection of the job application and worked-hours data,
+\item bulk collection of the server log data,
+\item bulk collection of as many user profiles as possible before the data from (1) and (2) could be considered stale, 
+\item featurization and scoring of each freelancer whose profile was collected in step (3).
+\end{enumerate} 
 
 \end{document}
 
