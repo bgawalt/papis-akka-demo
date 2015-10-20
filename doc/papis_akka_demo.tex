@@ -71,12 +71,26 @@ When the client issues a query, e.g., ``java developer'', ``restaurant menu desi
 
 This adds a third requirement to the query's result set: listed freelancers should not only be relevant and high-performing, they should also be receptive to an interview invitation at the time of the query. If the system returns a list of the same ten excellent freelancers are returned for every search for ``wordpress template,'' it's a recipe for those ten freelancers being deluged with opportunities they're to busy to fill (and for the freelancers ranked just outside that top ten being unreasonably starved for job invitations).
 
-\subsection{The predictive model}
+There was an existing heuristic in place to try and capture this, but it was felt a learned model trained on historical data could easily provide higher accuracy.
+
+\subsection{Building the predictive model}
 
 If the system should only show freelancers available to interview, how should we estimate freelancer availability? This question can be gently reformulated into a question of binary classification: ``If Freelancer X were to receive an invitation to interview right now, does their recent use of the site suggest they would accept that invitation, or would they instead reject or ignore it?''
 
+A logistic regression model can help answer this question. Each invitation sent from a client to a freelancer was treated as an example event, labeled as a positive class member if it was accepted and negative otherwise. (There were roughly one million such examples within a relevant and recent time frame.) The goal would be to link the freelancer's recent site activity -- within the month prior to receiving the invitation -- to the outcome of an acceptance or rejection of the invite.
 
+The raw materials, and derived features, came in four main varieties:
 
+\begin{description}
+\item[Job application/invitation history] In the previous day, how many job applications did Freelancer X create? How many invitations did X receive? How many of each were cancelled by the client, or by the freelancer? How many of each led to filled jobs? Answer these questions again for the time periods: two days, four days, seven days, 14 days, and 30 days.
+\item[Hours worked] How many hours has Freelancer X billed to any client in the preceding day? two days? ... thirty days?
+\item[Server log history] In the previous one/two/.../thirty days, how many times has Freelancer X visited pages under the ``Job Search,'' ``Message Center,'' and ``View Contractor Profile'' sections of Upwork.com?
+\item[User profile] How many jobs has the freelancer worked in each of Upwork's job categories (e.g., Web Development, Graphic Design, Data Entry)? What is their stated preference for receiving more invitations at this time (``I am available,'' vs. ``I'm not currently available'')? 
+\end{description}
+
+These raw materials (along with a few other sources) could be harvested from three services: a Greenplum relational database for assembling job application and hours-worked data, and an Amazon S3 bucket for the server logs. The user-profile information was an interesting case: the historical state of the profile was logged to a table in Greenplum with each invitation, but a freelancer's present profile state required a call to an internal service's REST API.
+
+Assembling these feature vectors and performing a training-validation-testing split led to a model with an AUC metric of around 0.81. This outperformed the existing heuristic's accuracy sufficiently, and the model was deemed ready for production use.
 
 
 \end{document}
