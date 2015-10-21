@@ -273,8 +273,31 @@ in step (3).
 processing time when performed sequentially. Keeping a buffer of 5 minutes aside
 for Step (4)'s vectorization and scoring (and saving those scores to disc), that
 means a 4 hour cycle will involve 195 minutes of harvesting user profiles in
-Step (3). That means an amortized rate of 146,250 scores produced per hour. The
-fastest rate possible (one every 20 ms) would mean 180,000 
+Step (3). That means an amortized rate of 146,250 scores produced per hour. 
+
+The fastest rate possible (one every 20 ms) would mean 180,000 scores per
+hour. That leaves room for a potential 23\% improvement in throughput
+by moving to a system where user profiles are harvested concurrently
+alongside the other routines.
+
+\subsubsection{The Actor Model}
+
+The Actor model makes it easy to architect a concurrent version of the
+availability system. An Actor framework involves three components:
+
+\begin{description}
+\item[The Actors] A collection of objects, each holding a message queue, some 
+private state, and some private methods. This state is can only be updated, and
+these methods can only be called, by the actor object itself, and in response to 
+receiving a message from some other actor. The response an actor takes to each
+message is fully completed before it begins its response to the next message.
+\item[The Messages] Simple, immutable objects that contain information or 
+instructions one actor wants another actor to notice.
+\item[The execution framework] The harness which ensures that the computation
+each actor calls for is completed in order, each dispatched message reaches the
+right actor queue, and that the overall workload is shared as evenly as possible
+over the available resources.
+\end{description}
 
 \end{document}
 
