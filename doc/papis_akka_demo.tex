@@ -1,5 +1,7 @@
 \documentclass{article}
 \usepackage{graphicx}
+%\usepackage[backend=bibtex]{biblatex}
+
 
 \begin{document}
 
@@ -292,12 +294,26 @@ these methods can only be called, by the actor object itself, and in response to
 receiving a message from some other actor. The response an actor takes to each
 message is fully completed before it begins its response to the next message.
 \item[The Messages] Simple, immutable objects that contain information or 
-instructions one actor wants another actor to notice.
-\item[The execution framework] The harness which ensures that the computation
-each actor calls for is completed in order, each dispatched message reaches the
-right actor queue, and that the overall workload is shared as evenly as possible
-over the available resources.
+instructions one actor wants another actor to notice. 
+\item[The Execution Context] The harness which ensures that each dispatched 
+message reaches the right actor queue, the computation each actor calls for is
+completed in order, and that the overall workload is balanced as evenly as possible
+over the available hardware resources.
 \end{description}
+
+This message-passing version of concurrency avoids the race conditions and
+other difficulties that can arise from many execution tasks sharing mutable state.
+Anything mutable is isolated inside individual actors, who only share with each
+other immutable message objects.
+
+The actor model rose to prominence in an artificial intelligence context thanks to
+work from Hewitt, Bishop, and Stieger.~\cite{hewitt1973ijcai} It's true that compared
+to classical imperative programming ``it imposes a major mind shift in software
+design,''~\cite{korland2011thesis} it's a comparatively small leap with respect, with
+fewer pitfalls for novice (or harried) developers to hazard.
+
+\bibliography{papis_akka_demo_bib}
+\bibliographystyle{plain}
 
 \end{document}
 
