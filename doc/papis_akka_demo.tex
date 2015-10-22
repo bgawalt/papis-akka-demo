@@ -1,7 +1,7 @@
 \documentclass{article}
 \usepackage{graphicx}
 %\usepackage[backend=bibtex]{biblatex}
-
+\usepackage{url}
 
 \begin{document}
 
@@ -25,8 +25,9 @@ can wind up erasing any gains a smarter prediction can offer.
  Exposing concurrency in these model-usage steps, and then capitalizing on that
 concurrency, can improve throughput. This paper describes how the Actor
 framework can be used to bring a predictive model to a real-time setting. Two
-case-study examples are described: a simple text classifier (with accompanying
-code), and a live deployment built for the freelancing platform Upwork.
+case-study examples are described: a live deployment built for the freelancing 
+platform Upwork, a simple text classifier with accompanying code for use as an
+introductory project.
 \end{abstract}
 
 \section{The practice of machine learning}
@@ -92,7 +93,7 @@ forward could be to incorporate more concurrent processing. The three steps to
 prediction (gathering raw materials, featurizing those materials into vectors,
 scoring the vectors) can transition from a serial sequence to a pipeline.
 
-  Figure 1 demonstrates a modification of the scoring task flow, producing
+  Figure~\ref{fig_pipeline} demonstrates a modification of the scoring task flow, producing
 predictions of $N$ events in a sequential and a concurrent pattern.  This
 pipeline offers a few advantages. Scores are produced with less delay after the
 raw material gathering (useful in case the information in that material is at
@@ -101,9 +102,11 @@ risk of going stale or out of date).
 \begin{figure}[h]
 \includegraphics[width=0.6\textwidth]{fig/tex/pipeline.png}
 \centering
- \caption{(a) The scoring procedure performed serially. (b) The individual tasks
+\caption{(a) The scoring procedure performed serially. (b) The individual tasks
 for each event to be scored performed in a concurrent pipeline.}
+\label{fig_pipeline}
 \end{figure}
+
 
  Most importantly, this redesign provides a clear path forward to speed-up in
 completing all $N$ scoring tasks. If a system can genuinely perform the
@@ -311,6 +314,25 @@ work from Hewitt, Bishop, and Stieger.~\cite{hewitt1973ijcai} It's true that com
 to classical imperative programming ``it imposes a major mind shift in software
 design,''~\cite{korland2011thesis} it's a comparatively small leap with respect, with
 fewer pitfalls for novice (or harried) developers to hazard.
+
+\subsubsection{Actors for the availability system}
+
+\section{Case study: a text classification API}
+
+Code available at~\cite{gawalt_papis_demo}
+
+\subsection{Scala and Akka}
+
+Akka documentation~\cite{akka_doc}
+
+The C++ Actor Framework~\cite{charousset2014caf}
+
+Pykka~\cite{pykka_doc}
+
+\section{Conclusion}
+
+Machine learning pipelines lend themselves particularly well to the Actor model.
+
 
 \bibliography{papis_akka_demo_bib}
 \bibliographystyle{plain}
