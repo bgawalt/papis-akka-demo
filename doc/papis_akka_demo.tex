@@ -1,6 +1,6 @@
 \documentclass{article}
 \usepackage{graphicx}
-%\usepackage[backend=bibtex]{biblatex}
+\usepackage{subcaption}
 \usepackage{url}
 
 \begin{document}
@@ -144,9 +144,9 @@ enough to accommodate a variety of approaches to any one problem. The ease
  From here, this paper presents a case study where an Actor framework was key to
 bringing a predictive model to production. It interleaves this story with a
 summary of what an Actor framework entails, as well as a description of the
-Actor implementation in the Scala library Akka. It concludes with a reiteration
+framework implementation in the Scala library Akka. It concludes with a reiteration
 of the advantages (and disadvantages) the Actor framework offers and a
-discussion of why comfort with Actors can help machine learning specialists with
+discussion of why comfort with actors can help machine learning specialists with
 their work and careers.
 
 \section{Case Study: Predicting worker availability at Upwork}
@@ -285,7 +285,7 @@ hour. That leaves room for a potential 23\% improvement in throughput
 by moving to a system where user profiles are harvested concurrently
 alongside the other routines.
 
-\subsubsection{The Actor Model}
+\subsubsection{The Actor model}
 
 The Actor model makes it easy to architect a concurrent version of the
 availability system. An Actor framework involves three components:
@@ -301,7 +301,9 @@ instructions one actor wants another actor to notice.
 \item[The Execution Context] The harness which ensures that each dispatched 
 message reaches the right actor queue, the computation each actor calls for is
 completed in order, and that the overall workload is balanced as evenly as possible
-over the available hardware resources.
+over the available hardware resources. This system also provides methods for
+creating new actors, as well as for setting up a timed schedule to dispatch
+messages at regular intervals to any actor.
 \end{description}
 
 This message-passing version of concurrency avoids the race conditions and
@@ -315,7 +317,74 @@ to classical imperative programming ``it imposes a major mind shift in software
 design,''~\cite{korland2011thesis} it's a comparatively small leap with respect, with
 fewer pitfalls for novice (or harried) developers to hazard.
 
-\subsubsection{Actors for the availability system}
+\subsubsection{The concurrent availability system}
+
+The family of actors defined for a concurrent availability prediction system uses a
+hub-and-spoke arrangement, with a single lynchpin actor in charge of featurization
+of a freelancer's raw data and producing the model score from the resulting vector.
+Three ``historian'' actors are in charge of polling the higher-bandwidth Greenplum 
+and S3 sources, as well as one in charge of (more rapidly) polling the user profile
+service; all four send their findings back to the central scorer for storage as state
+variables. A sixth actor receives final freelancer-score pairs from the scorer, and 
+stages these scores to be bulk uploaded back to Greenplum, where the rest
+of the site can make use of it.
+
+In more detail:
+
+\begin{description}
+\item[The Scorer] The central hub of the actor system: the scorer keeps track of
+each freelancer's worked-hours, job application, and server log information,
+updating this background data whenever an update is received from a Historian.
+Whenever a freelancer's information is received from the User Profile Fetcher -- that 
+profile information holding the final subset of features needed by the model --
+the 
+
+\item[The historians] Each is responsible for polling a different kind of raw
+material resource. The execution context is given a timing schedule for
+each, and periodically sends them ``poll for new data now.''
+	\begin{description}
+	\item[Worked-hours historian] Fetches worked-hours records from 
+	Greenplum at a schedule of once per hour.
+	\item[Job applications historian] Fetches the job application record from
+	Greenplum at a schedule of once per hour.
+	\item[S3 historian] Fetches the latest server logs at a schedule of once per hour
+	\end{description}
+
+\item[User profile fetcher] Every 20 milliseconds, requests and processes user profile
+data from Upwork's internal service
+
+\end{description}
+
+This family of actors is depicted in Figure~\ref{fig_av_system}.
+
+\begin{figure}[h]
+\includegraphics[width=0.8\textwidth]{fig/tex/availability_system.png}
+\centering
+\caption{The actor system for freelancer availability scoring. Each actor can be thought of
+as a mailbox, holding messages, with a tiny, little brain, holding memories and reacting to 
+input}
+\label{fig_av_system}
+\end{figure}
+
+\begin{figure}
+\begin{subfigure}{.5\textwidth}
+	\centering
+	\includegraphics[width=.95\linewidth]{fig/tex/availability_serial.png}
+	\caption{Sequential operation}
+	\label{fig_avail_serial}
+\end{subfigure}
+\begin{subfigure}{.5\textwidth}
+	\centering
+	\includegraphics[width=.95\linewidth]{fig/tex/availability_concurrent.png}
+	\caption{Parallel operation}
+	\label{fig_avail_concur}
+	\end{subfigure}
+\caption{The computation cycle for availability in its sequential and concurrent
+formulations, on a four-CPU system. When data is kept to within one hour of
+freshness, the actor model provides an approximately 3.75-fold increase in
+throughput}
+\label{fig:fig}
+\end{figure}
 
 \section{Case study: a text classification API}
 
@@ -324,6 +393,8 @@ Code available at~\cite{gawalt_papis_demo}
 \subsection{Scala and Akka}
 
 Akka documentation~\cite{akka_doc}
+
+Quasar documentation~\cite{quasar_doc}
 
 The C++ Actor Framework~\cite{charousset2014caf}
 
