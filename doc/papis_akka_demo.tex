@@ -5,7 +5,7 @@
 
 \begin{document}
 
-\title{Deploying predictive models with the Actor framework}
+\title{Deploying predictive models with the actor framework}
 \author{Brian Gawalt \\
 Upwork, Inc. \\
 \texttt{bgawalt@upwork.com}
@@ -23,7 +23,7 @@ too much time spent featurizing raw data and evaluating a model over features
 can wind up erasing any gains a smarter prediction can offer.
 
  Exposing concurrency in these model-usage steps, and then capitalizing on that
-concurrency, can improve throughput. This paper describes how the Actor
+concurrency, can improve throughput. This paper describes how the actor
 framework can be used to bring a predictive model to a real-time setting. Two
 case-study examples are described: a live deployment built for the freelancing 
 platform Upwork, a simple text classifier with accompanying code for use as an
@@ -137,15 +137,15 @@ engineers in addition to more hardware, to what originally was a project of just
 the single machine learning specialist.
 
  This paper is here to specifically recommend a midpoint between a from-scratch
-concurrent framework and the mega-scale offerings. The Actor framework offers a
+concurrent framework and the mega-scale offerings. The actor framework offers a
 simple way to reason through concurrent problems, while still being flexible
 enough to accommodate a variety of approaches to any one problem. The ease
 
- From here, this paper presents a case study where an Actor framework was key to
+ From here, this paper presents a case study where an actor framework was key to
 bringing a predictive model to production. It interleaves this story with a
-summary of what an Actor framework entails, as well as a description of the
+summary of what an actor framework entails, as well as a description of the
 framework implementation in the Scala library Akka. It concludes with a reiteration
-of the advantages (and disadvantages) the Actor framework offers and a
+of the advantages (and disadvantages) the actor framework offers and a
 discussion of why comfort with actors can help machine learning specialists with
 their work and careers.
 
@@ -260,7 +260,7 @@ of 4.3 million scores to be produced per day, one for each up-to-date profile
 request. With six million total registered freelancers, this put the squeeze on
 the preliminary goal of every-freelancer, every-four-hours.
 
-\subsection{Concurrency under the Actor model}
+\subsection{Concurrency under the actor model}
 
  A direct re-use of the routines in the model generation software would involve:
 
@@ -287,10 +287,10 @@ alongside the other routines. This potential upside increases as the
 stringency of the data-freshness guarantee is increased from four
 hours, to two hours, to one.
 
-\subsubsection{The Actor model}
+\subsubsection{The actor model}
 
-The Actor model makes it easy to architect a concurrent version of the
-availability system. An Actor framework involves three components:
+The actor model makes it easy to architect a concurrent version of the
+availability system. An actor framework involves three components:
 
 \begin{description}
 \item[The Actors] A collection of objects, each holding a message queue, some 
@@ -430,20 +430,38 @@ Upwork's backend, achieves this same rate of freelancer score production.
 
 \section{Case study: a text classification API}
 
-Code available at~\cite{gawalt_papis_demo}
+As a hands-on demonstration of powering a machine learning service with
+the actor framework, a repository of code has been put online as a companion 
+to this paper at \url{https://github.com/bgawalt/papis-akka-demo}.~\cite{gawalt_papis_demo}
+It is implemented in Scala, making use of the Akka~library~\cite{akka_doc}
+to handle the execution context and actor classes, and the Spray~library~\cite{spray_doc}
+to connect that execution context with HTTP requests from the outside world.
 
-\subsection{Scala and Akka}
+\subsection{Scala, Akka and Spray}
 
-The library provides a simple trait for defining new actors.
+Scala is high level language, designed to allow for easy productivity when
+developing in both functional programming and object-oriented styles. The
+Scala language allows developers to define \texttt{trait}s, ways to partially 
+define class features. Declared attributes can be implemented right
+along with the \texttt{trait} definition itself, or they can defer the implementation
+until the trait is finally used to build a legitimate \texttt{class}.
+
+They're much like Java's \texttt{interface}s, with the
+added benefit of mixin capabilities -- several \texttt{trait}s can be defined
+independently with their own methods and fields, then combined arbitrarily 
+to create new subclasses sharing the union of their attributes.
+
+The Akka library provides a \texttt{trait} called \texttt{Actor}. To construct
+an actor, declare a new \texttt{class} which extends \texttt{Actor}, which
+will then require you to implement the method \texttt{receive}.
+
 
 \section{Conclusion}
 
-Machine learning pipelines lend themselves particularly well to the Actor model.
+Machine learning pipelines lend themselves particularly well to the actor model.
 %tk tk the political/managerial aspects
 
 \subsection{Other actor libraries}
-
-Akka documentation~\cite{akka_doc}
 
 Quasar documentation~\cite{quasar_doc}
 
