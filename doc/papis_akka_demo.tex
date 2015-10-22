@@ -264,7 +264,6 @@ the preliminary goal of every-freelancer, every-four-hours.
 
  A direct re-use of the routines in the model generation software would involve:
 
-
 \begin{enumerate}
 \item bulk collection of the job application and worked-hours data,
 \item bulk collection of the server log data,
@@ -280,10 +279,13 @@ for Step (4)'s vectorization and scoring (and saving those scores to disc), that
 means a 4 hour cycle will involve 195 minutes of harvesting user profiles in
 Step (3). That means an amortized rate of 146,250 scores produced per hour. 
 
-The fastest rate possible (one every 20 ms) would mean 180,000 scores per
+The fastest rate possible (one every 20 ms, as limited by the necessary
+contributions from the user profile service) would mean 180,000 scores per
 hour. That leaves room for a potential 23\% improvement in throughput
 by moving to a system where user profiles are harvested concurrently
-alongside the other routines.
+alongside the other routines. This potential upside increases as the
+stringency of the data-freshness guarantee is increased from four
+hours, to two hours, to one.
 
 \subsubsection{The Actor model}
 
@@ -382,6 +384,27 @@ input.}
 \label{fig_av_system}
 \end{figure}
 
+By dividing responsibility for the full scoring pipeline across several distinct workers,
+the execution context is able to take their concurrent operations and schedule them
+for the operating system to perform. When the underlying machine offers multiple
+CPUs, this can mean the actors operate simultaneously, allowing for the 
+latency-reducing speed ups we were hoping for. 
+
+Figure~\ref{fig_avail_serial} depicts the order of operations from our original,
+sequential scoring system, where raw material gathering, vectorization, and
+scoring happen one after another, repeating once an hour. Time spent gathering
+the Greenplum and S3 resources takes away from the rate-limited use of
+the user profile service.
+
+Figure~\ref{fig_avail_concur} demonstrates the concurrent availability scorer
+run on a four core machine. The execution context is able to provide parallel
+execution of actor routines, meaning the user profile historian never \footnote{
+This may be a little generous: the Java runtime environment itself may preempt
+the execution of one or more actor's operations in order to execute services like
+garbage collection.} needs to take a break to let the other raw material harvesters 
+use the execution thread. The rate of availability score production can be maxed out 
+by taking full, round-the-clock advantage of the rate-limited resource.
+
 \begin{figure}
 \begin{subfigure}{.5\textwidth}
 	\centering
@@ -399,8 +422,11 @@ input.}
 formulations, on a four-CPU system. When data is kept to within one hour of
 freshness, the actor model provides an approximately 3.75-fold increase in
 throughput}
-\label{fig:fig}
+\label{fig_avail_serial_concur}
 \end{figure}
+
+The actually-implemented availability system, now running as a service on 
+Upwork's backend, achieves this same rate of freelancer score production.
 
 \section{Case study: a text classification API}
 
@@ -408,18 +434,22 @@ Code available at~\cite{gawalt_papis_demo}
 
 \subsection{Scala and Akka}
 
+The library provides a simple trait for defining new actors.
+
+\section{Conclusion}
+
+Machine learning pipelines lend themselves particularly well to the Actor model.
+%tk tk the political/managerial aspects
+
+\subsection{Other actor libraries}
+
 Akka documentation~\cite{akka_doc}
 
 Quasar documentation~\cite{quasar_doc}
 
 The C++ Actor Framework~\cite{charousset2014caf}
 
-Pykka~\cite{pykka_doc}
-
-\section{Conclusion}
-
-Machine learning pipelines lend themselves particularly well to the Actor model.
-
+Pykka~\cite{pykka_doc} may benefit from Jython~\cite{jython}
 
 \bibliography{papis_akka_demo_bib}
 \bibliographystyle{plain}
