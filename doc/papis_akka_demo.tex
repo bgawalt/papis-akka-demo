@@ -319,50 +319,66 @@ fewer pitfalls for novice (or harried) developers to hazard.
 
 \subsubsection{The concurrent availability system}
 
+% TKTK Why not just make a bunch of queries to Greenplum???
+% A: Cuz that's EVEN WORSE, like minutes per score
+
 The family of actors defined for a concurrent availability prediction system uses a
 hub-and-spoke arrangement, with a single lynchpin actor in charge of featurization
-of a freelancer's raw data and producing the model score from the resulting vector.
-Three ``historian'' actors are in charge of polling the higher-bandwidth Greenplum 
-and S3 sources, as well as one in charge of (more rapidly) polling the user profile
-service; all four send their findings back to the central scorer for storage as state
-variables. A sixth actor receives final freelancer-score pairs from the scorer, and 
-stages these scores to be bulk uploaded back to Greenplum, where the rest
-of the site can make use of it.
+from a freelancer's raw data. Three ``historian'' actors are in charge of polling the 
+higher-bandwidth Greenplum and S3 sources, and another is in charge of (rapidly)
+polling the user profile service; all four send their findings back to the central
+featurizer for storage as state variables. A sixth actor receives (freelancer ID, feature
+vector) pairs from the featurizer, applies the model, and stages these scores to be
+bulk uploaded back to Greenplum, where the rest of Upwork's freelancer search
+systems can make use of it.
 
+% TK TK Maybe move this to an appendix?
 In more detail:
 
 \begin{description}
-\item[The Scorer] The central hub of the actor system: the scorer keeps track of
+\item[The featurizer] The central hub of the actor system: the featurizer keeps track of
 each freelancer's worked-hours, job application, and server log information,
 updating this background data whenever an update is received from a Historian.
 Whenever a freelancer's information is received from the User Profile Fetcher -- that 
-profile information holding the final subset of features needed by the model --
-the 
+profile holding the final piece of information needed for a complete feature set --
+the featurizer sends the freelancer's feature vector to the scorer-exporter.
 
 \item[The historians] Each is responsible for polling a different kind of raw
 material resource. The execution context is given a timing schedule for
 each, and periodically sends them ``poll for new data now.''
 	\begin{description}
 	\item[Worked-hours historian] Fetches worked-hours records from 
-	Greenplum at a schedule of once per hour.
+	Greenplum at a schedule of once per hour, forwarding the results found
+	to the featurizer.
 	\item[Job applications historian] Fetches the job application record from
-	Greenplum at a schedule of once per hour.
-	\item[S3 historian] Fetches the latest server logs at a schedule of once per hour
+	Greenplum at a schedule of once per hour, forwarding.
+	\item[S3 historian] Fetches the latest server logs at a schedule of once per hour,
+	forwarding them to the featurizer.
+	\item[User profile fetcher] Every 20 milliseconds, requests and processes user 
+	profile data from Upwork's internal service, passing the results back to the featurizer.
 	\end{description}
 
-\item[User profile fetcher] Every 20 milliseconds, requests and processes user profile
-data from Upwork's internal service
+\item[The scorer-exporter] Waits to receive from the featurizer  a freelancer ID, and a
+vector of features capturing that freelancer's recent use of the Upwork platform.
+It then applies the (previously trained) logistic regression model to the features,
+generating a ``odds-of-accepting-an-interview-invitation'' score for that freelancer.
+The scorer-exporter stores as many of these as it receives in one hour, then
+uploads the large collection all at once to a table in Greenplum where it can be
+read by the rest of the Upwork backend systems and incorporated into search
+rankings.
 
 \end{description}
 
-This family of actors is depicted in Figure~\ref{fig_av_system}.
+This family of actors, along with arrows indicating the principal flow of information 
+from raw material, to feature vector, to availability score, is depicted in
+Figure~\ref{fig_av_system}.
 
 \begin{figure}[h]
 \includegraphics[width=0.8\textwidth]{fig/tex/availability_system.png}
 \centering
 \caption{The actor system for freelancer availability scoring. Each actor can be thought of
 as a mailbox, holding messages, with a tiny, little brain, holding memories and reacting to 
-input}
+input.}
 \label{fig_av_system}
 \end{figure}
 
