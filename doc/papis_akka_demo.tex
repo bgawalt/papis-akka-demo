@@ -123,9 +123,11 @@ tricky and time-consuming, and building a new concurrent system for a single
 project might fail a cost-to-benefits ratio test.
 
  Fortunately, lots of great work has produced platforms to take this plan to a
-truly wide scale implementation. Apache Storm, Apache Spark (esp. Spark
-Streaming), and Twitter's Heron all try to distribute this kind of event-driven
-computing across multiple machines to ensure the highest possible throughput.
+truly wide scale implementation. Apache Storm~\cite{apache_storm}, 
+Apache Spark (especially its Spark Streaming library)~\cite{apache_spark}, 
+and Twitter's Heron~\cite{kulkarni2015heron} all try to distribute this kind of 
+event-driven computing across multiple machines to ensure the highest 
+possible throughput.
 
  Unfortunately, they're complicated systems. Familiarizing oneself with the API,
 and managing the underlying infrastructure, requires considerably more expertise
@@ -373,14 +375,14 @@ rankings.
 
 This family of actors, along with arrows indicating the principal flow of information 
 from raw material, to feature vector, to availability score, is depicted in
-Figure~\ref{fig_av_system}.
+Figure~\ref{fig_av_system}. It's a 
 
 \begin{figure}[h]
-\includegraphics[width=0.8\textwidth]{fig/tex/availability_system.png}
+\includegraphics[width=0.7\textwidth]{fig/tex/availability_system.png}
 \centering
 \caption{The actor system for freelancer availability scoring. Each actor can be thought of
-as a mailbox, holding messages, with a tiny, little brain, holding memories and reacting to 
-input.}
+as a mailbox, queuing up messages, with a little brain, holding memories and reacting to 
+those messages one by one.}
 \label{fig_av_system}
 \end{figure}
 
@@ -388,7 +390,11 @@ By dividing responsibility for the full scoring pipeline across several distinct
 the execution context is able to take their concurrent operations and schedule them
 for the operating system to perform. When the underlying machine offers multiple
 CPUs, this can mean the actors operate simultaneously, allowing for the 
-latency-reducing speed ups we were hoping for. 
+latency-reducing speed ups we were hoping for. And the single-file
+processing of messages we avoid problems where, e.g., one step in the scoring 
+procedure tries to read its stored worked-hours data at the same time another
+step is updating that same data -- trying to square this circle from scratch
+can easily result in code that deadlocks, livelocks, or just plain drops data.
 
 Figure~\ref{fig_avail_serial} depicts the order of operations from our original,
 sequential scoring system, where raw material gathering, vectorization, and
@@ -433,11 +439,13 @@ Upwork's backend, achieves this same rate of freelancer score production.
 As a hands-on demonstration of powering a machine learning service with
 the actor framework, a repository of code has been put online as a companion 
 to this paper at \url{https://github.com/bgawalt/papis-akka-demo}.~\cite{gawalt_papis_demo}
+The project is an online learner, a text classifier trained one example at a time
+to distinguish between positive and negative class documents (e.g., spam 
+versus valid messages).
+
 It is implemented in Scala, making use of the Akka~library~\cite{akka_doc}
 to handle the execution context and actor classes, and the Spray~library~\cite{spray_doc}
 to connect that execution context with HTTP requests from the outside world.
-
-
 
 \subsection{Scala, Akka and Spray}
 
@@ -476,13 +484,24 @@ client via Spray's HTTP mechanisms.
 
 The parser can decode the requested URL and then forward instructions, along with
 the context to be completed, to the second actor in the system: the learner. Via this 
-API, the learner can: score a new document based on the current model state; 
-update the model state when given a document and a positive or negative class 
-label; report its current state as a string; or reset itself to it's original, zero-observations
-state.
+API, the learner can perform six tasks: score a new document based on the current 
+model state; update the model state when given a document and a positive or negative 
+class label; report its current state as a string; reset itself to it's original, 
+zero-observations state; synchronize with fellow learners by transmitting information
+about recently-seen observations, or incorporating that information received from another
+learner.
+
+The \texttt{LoneLearnerServer} has only two actors: one parser, listening to HTTP on
+a particular socket, and a learner, waiting to receive new documents to judge or labelled
+documents to learn from. Figure~\ref{fig_txt_cls_sng} lays out the basic execution flow.
+There's a risk that too many requests received in rapid succession could cause steadily
+longer delays between client request and response.\footnote{In practice, it seems
+fairly rapid even with this obvious bottleneck -- on a two-core machine, the system was
+able to process 20,000 predict-then-update cycles in around 60 seconds, or about 
+1.5 milliseconds per instruction to the learner.}
 
 \begin{figure}[h]
-\includegraphics[width=0.8\textwidth]{fig/tex/single_txt_cls.png}
+\includegraphics[width=0.7\textwidth]{fig/tex/single_txt_cls.png}
 \centering
 \caption{A text classifier system with a lone learner. The learner, with its more
 computationally intensive tasks, is a potential bottleneck, and latencies can increase as
@@ -490,31 +509,104 @@ requests pile up.}
 \label{fig_txt_cls_sng}
 \end{figure}
 
+To break this bottleneck, \texttt{PackLearnerServer} has a single parser working
+with $N$ learner actors. Each HTTP request parsed can be routed to a single learner,
+selected in a one-after-the-other sequence, or selected pseudorandomly (such as by 
+taking the request's hash value modulo $N$), spreading the computational load and
+increasing the odds that the selected learner fielding the request will be unoccupied and
+ready to work at the time of the request. 
+
+The drawback is that when a new labelled document is observed, it can only update
+the model housed in the selected learner's state. Predictions made by the other
+learners in the pack won't be able to benefit from the knowledge gained from the 
+update. To patch this, learners are able to send each other update messages
+after a certain number of observations. This synchronization pulls them offline, unable
+to respond to new requests until the updates are incorporated. 
+
+The machine learning specialist can judge how to trade more frequent updates (and 
+potentially longer delays between request and response) for greater fidelity to the full 
+collection of observed documents. Figure~\ref{fig_txt_cls_dbl} depicts an example of 
+this system's execution of requests.
+
 \begin{figure}[h]
-\includegraphics[width=0.8\textwidth]{fig/tex/double_txt_cls.png}
+\includegraphics[width=0.7\textwidth]{fig/tex/double_txt_cls.png}
 \centering
 \caption{A text classifier system with multiple learners. Request latency can be reduced
 by sharing the load, though a trade-off has to be made: learners can stay in the dark 
 about recent observations for longer periods (possibly issuing noisier predictions), or 
 more time can be spent synchronizing models between learners (possibly delaying 
-new requests). Note how the order requests are completed may no longer match 
-the order in which they were issued.}
-\label{fig_txt_cls_sng}
+new requests). Note the order in which requests are completed may not match the 
+order in which they were issued.}
+\label{fig_txt_cls_dbl}
 \end{figure}
-
 
 \section{Conclusion}
 
-Machine learning pipelines lend themselves particularly well to the actor model.
-%tk tk the political/managerial aspects
+Data science and machine learning are growing as fields and professions, 
+expanding into new domains. That necessarily means engaging firms who 
+find the whole field unfamiliar; and unfamiliarity can inspire risk aversion. 
+These firms in particular are going to greatly appreciate it when a specialist
+demonstrates a production-ready model at minimal cost, including infrastructure
+costs, engineering person-hour costs, and maintenance costs.
 
-\subsection{Other actor libraries}
+Exposing concurrency yields efficiencies and reduces costs for any service.
+Machine learning and data science products benefit especially from the actor 
+framework. It is straightforward to take the standard procedure -- gather raw data, 
+produce features from that data, and score those features -- and define a collection 
+of actors. That simplicity generates savings in engineering and maintenance efforts.
 
-Quasar documentation~\cite{quasar_doc}
+Upwork was able to take an underperforming sequential software routine, port the
+particular components to one actor each, and build a system which achieves the
+maximum possible scoring throughput with much-improved ``freshness'' guarantees.
 
-The C++ Actor Framework~\cite{charousset2014caf}
+The true benefit of the actor framework is its simplicity. The \texttt{LoneLearnerServer}
+text classification API, built on the well-designed Spray and Akka libraries, is under 
+250 lines of code. And other languages offer their own actor libraries.
 
-Pykka~\cite{pykka_doc} may benefit from Jython~\cite{jython}
+For Java, there's the Quasar platform~\cite{quasar_doc}, as well as a Java API for
+Akka. For C++, there's CAF, The C++ Actor Framework~\cite{charousset2014caf}.
+For Python, Pykka~\cite{pykka_doc} (though to take advantage of parallelism,
+your program may benefit from Jython~\cite{jython} and it's lack of global interpreter
+lock). For Ruby, consider Celluloid~\cite{celluloid_doc} (as with Python, consider 
+JRuby~\cite{jruby_doc} or Rubinius~\cite{rubinius_doc} to enable thread-level
+parallelism).
+
+
+Having the simple version of a predictive API up and running
+makes it easy to expose and capitalize on greater amounts of concurrency:
+\begin{itemize}
+\item Which actor routines can swap their I/O library for a non-blocking equivalent
+(freeing thread resources for another actor to use)? 
+\item Can the workload be smoothed by managing duplicate actors (as with
+ \texttt{PackLearnerServer} in our example), or by spawning new actors 
+ on-demand? 
+\item More ambitiously, can we start building distributed networks of actors, passing 
+info and sharing tasks?
+\end{itemize}
+
+There is a scale where the actor framework and its concurrency is overkill.
+Some machine-learned models only needs to produce new scores 
+infrequently enough -- a new batch overnight, say -- that allows for the exact
+same routines to be used ``in the wild'' as were used for designing, validating,
+and testing the model ``in the lab.'' The machine learning specialist might be
+of more use moving on to generate a new or better model, than to rig up
+
+There is a scale where an actor framework starts requiring greater and greater
+care and maintenance. Without backpressure, overstuffed mailboxes can cause 
+fatal out-of-memory errors. Timed-out operations need to recover gracefully.
+As these problems mount, the value proposition of large-scale platforms like
+Spark and Storm become more compelling.
+
+The actor framework helps the machine learning specialist bridge the gap 
+between these scenarios. It is capable enough to support medium-scale
+applications, especially given the present affordability of four, eight, sixteen
+core systems. It is simple enough that the specialist can assemble the
+concurrent solution on their own: a production deployment from the same
+person who designed the model.
+
+Empowered, self-sufficient data scientists are going to continue to push the 
+frontiers of their profession. They should consider adding the actor 
+framework to their toolkit.
 
 \bibliography{papis_akka_demo_bib}
 \bibliographystyle{plain}
