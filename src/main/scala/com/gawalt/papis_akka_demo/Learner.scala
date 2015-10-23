@@ -26,7 +26,7 @@ trait Learner extends Actor {
     case ResetMsg(ctx) =>
       reset()
       ctx.complete("Reset classifier: \n" + status)
-    case x: _ =>
+    case x: Any =>
       // If it's not one of the four main routines, log the error to the console
       println(s"ERROR: Unexpected message received, ${x.getClass.getSimpleName}")
   }
