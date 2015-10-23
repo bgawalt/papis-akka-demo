@@ -437,6 +437,8 @@ It is implemented in Scala, making use of the Akka~library~\cite{akka_doc}
 to handle the execution context and actor classes, and the Spray~library~\cite{spray_doc}
 to connect that execution context with HTTP requests from the outside world.
 
+
+
 \subsection{Scala, Akka and Spray}
 
 Scala is high level language, designed to allow for easy productivity when
@@ -446,14 +448,59 @@ define class features. Declared attributes can be implemented right
 along with the \texttt{trait} definition itself, or they can defer the implementation
 until the trait is finally used to build a legitimate \texttt{class}.
 
-They're much like Java's \texttt{interface}s, with the
-added benefit of mixin capabilities -- several \texttt{trait}s can be defined
-independently with their own methods and fields, then combined arbitrarily 
-to create new subclasses sharing the union of their attributes.
+They're much like Java's \texttt{interface}s, with the added benefit of mixin 
+capabilities -- several \texttt{trait}s can be defined independently with their own
+ methods and fields, then combined arbitrarily to create new subclasses sharing
+ the union of their attributes.
 
-The Akka library provides a \texttt{trait} called \texttt{Actor}. To construct
-an actor, declare a new \texttt{class} which extends \texttt{Actor}, which
-will then require you to implement the method \texttt{receive}.
+The Akka library provides a \texttt{trait} called \texttt{Actor}. To define an actor, 
+declare a new \texttt{class} which extends \texttt{Actor}, which will require you to
+implement the method \texttt{receive}. This method is of type \texttt{PartialFunction[Any,~Unit]},
+exactly as we'd expect: the actor can receive any kind of message, and then does 
+something. The \texttt{match} keyword makes it easy to encode reactions to different
+expected message types, and provide a default ``unexpected command'' behavior.
+
+\subsection{Text classification servers}
+
+The demo project involves two approaches to the same binary classification task,
+implemented as two separate API servers: \texttt{LoneLearnerServer} and
+\texttt{PackLearnerServer}. These APIs are backed by two types of actor: the request
+parser and the learner. 
+
+The request parser, one per server, inherits from Spray's \texttt{HttpServiceActor},
+whereby HTTP requests to a particular socket can be forwarded to the parser's
+\texttt{receive} method as a \texttt{RequestContext} object. This request context
+contains useful information, like the URL of the resource requested, and has a
+\texttt{complete} method which should be invoked to send a response to the
+client via Spray's HTTP mechanisms.
+
+The parser can decode the requested URL and then forward instructions, along with
+the context to be completed, to the second actor in the system: the learner. Via this 
+API, the learner can: score a new document based on the current model state; 
+update the model state when given a document and a positive or negative class 
+label; report its current state as a string; or reset itself to it's original, zero-observations
+state.
+
+\begin{figure}[h]
+\includegraphics[width=0.8\textwidth]{fig/tex/single_txt_cls.png}
+\centering
+\caption{A text classifier system with a lone learner. The learner, with its more
+computationally intensive tasks, is a potential bottleneck, and latencies can increase as
+requests pile up.}
+\label{fig_txt_cls_sng}
+\end{figure}
+
+\begin{figure}[h]
+\includegraphics[width=0.8\textwidth]{fig/tex/double_txt_cls.png}
+\centering
+\caption{A text classifier system with multiple learners. Request latency can be reduced
+by sharing the load, though a trade-off has to be made: learners can stay in the dark 
+about recent observations for longer periods (possibly issuing noisier predictions), or 
+more time can be spent synchronizing models between learners (possibly delaying 
+new requests). Note how the order requests are completed may no longer match 
+the order in which they were issued.}
+\label{fig_txt_cls_sng}
+\end{figure}
 
 
 \section{Conclusion}
