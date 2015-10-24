@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, Props, ActorSystem, Actor}
 import akka.io.IO
 import spray.can.Http
 import akka.pattern.ask
-import spray.routing.{HttpServiceActor, HttpService, RequestContext}
+import spray.routing.{HttpServiceActor, RequestContext}
 import akka.util.Timeout
 import scala.concurrent.duration._
 
@@ -16,7 +16,7 @@ import spray.routing
  * It is subject to the MIT license bundled with this package in the file LICENSE.txt.
  * Copyright (c) Brian Gawalt, 2015
  */
-object ClassifierServer {
+object LoneLearnerServer {
 
   /** The port on localhost that our HTTP API should listen to when fielding requests */
   val SERVICE_PORT = 12345
@@ -27,14 +27,14 @@ object ClassifierServer {
     // It decides who gets to make use of what computing resources (CPU? RAM? Disk I/O?) at any
     // given moment. It also keeps track of the messages that are stacking up in our actor's queues,
     // and ensures that any message sent to an actor gets routed to the right place.
-    implicit val system = ActorSystem("papis-akka-demo")
+    implicit val system = ActorSystem("papis-akka-demo-lone-server")
 
     // An instance of our Librarian class, which houses the TextClassifier as its private state
-    val noahWyle = system.actorOf(Props[Librarian])
+    val noahWyle = system.actorOf(Props[LoneLearner])
 
     // An instance of our ServiceActor class, the Actor which will parse and pass along
     // client requests to noahWyle at his actorRef address
-    val service = system.actorOf(Props(new ServiceActor(noahWyle.actorRef)), "papis-akka-service")
+    val service = system.actorOf(Props(new LoneParser(noahWyle)), "LoneLearnerService")
 
     // How long should a received client request be allowed to hang before it's auto-completed
     // by the execution context with a "TIMEOUT!" error message?
@@ -60,7 +60,7 @@ case class ResetMsg(ctx: RequestContext)
  * Objects of this class are Actors holding on to a stateful text classification model. That
  * model can be used and updated by passing the Actor one of the above four messages.
  */
-class Librarian extends Actor {
+class LoneLearner extends Actor {
 
   // Text classification model. See com.gawalt.papis_akka_demo.TextClassifier for more details.
   val cls = new TextClassifier()
@@ -97,7 +97,7 @@ class Librarian extends Actor {
  * Our class for handling HTTP requests, built on the HttpServiceActor interface/abstract class
  * @param librarian ActorRef for the actor in this system who is housing
  */
-class ServiceActor(val librarian: ActorRef) extends HttpServiceActor {
+class LoneParser(val librarian: ActorRef) extends HttpServiceActor {
 
   // What should we do with requests we receive? Pass them to `route`.
   def receive = runRoute(route)

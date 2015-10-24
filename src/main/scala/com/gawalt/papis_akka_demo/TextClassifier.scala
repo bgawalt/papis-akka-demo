@@ -28,6 +28,8 @@ class TextClassifier {
   /** Collection of all word tokens seen in any document */
   private var allTokens = mutable.HashSet.empty[String]
 
+  def numObservations = numPos + numNeg
+
   /**
    * Update the model -- numPos/numNeg, posCounts/negCounts, and allTokens -- with the new
    * information included in the labelled document provided
@@ -100,6 +102,18 @@ class TextClassifier {
        |Num neg: $numNeg,
        |Num tokens: ${allTokens.size}
      """.stripMargin
+  }
+
+  def +(other: TextClassifier): Unit = {
+    numPos += other.numPos
+    numNeg += other.numNeg
+    allTokens = allTokens.union(other.allTokens)
+    allTokens.foreach(token => {
+      val totalPos = posCounts.getOrElse(token, 0) + other.posCounts.getOrElse(token, 0)
+      if (totalPos > 0) posCounts(token) = totalPos
+      val totalNeg = negCounts.getOrElse(token, 0) + other.negCounts.getOrElse(token, 0)
+      if (totalNeg > 0) negCounts(token) = totalNeg
+    })
   }
 }
 

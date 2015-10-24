@@ -22,7 +22,7 @@ object ClassifierClient {
    *         belongs in the positive class.
    */
   def getPrediction(review: String): Try[Boolean] = Try({
-    val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/predict" +
+    val url = s"http://localhost:${LoneLearnerServer.SERVICE_PORT}/predict" +
       s"/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n").toDouble > 0
   })
@@ -37,7 +37,7 @@ object ClassifierClient {
    * @return If successful, the classification model's status, post-update
    */
   def issueUpdate(label: Boolean, review: String) : Try[String] = Try({
-    val url = s"http://localhost:${ClassifierServer.SERVICE_PORT}/observe" +
+    val url = s"http://localhost:${LoneLearnerServer.SERVICE_PORT}/observe" +
       s"/$label/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n")
   })
