@@ -4,6 +4,9 @@ Hello! This repository is a mild demonstration of deploying a predictive model, 
 an HTTP API, built using an actor framework. It makes use of Scala's Akka and Spray libraries
 to let you train and utilize a simple, two-class text classifier.
 
+To get up to speed, first read about the project that inspired this tutorial project in the full 
+report about data science and concurrency: [Deploying predictive models with the actor framework](file://doc/papis_akka_demo.pdf)
+
 You shouldn't need more than a Java Runtime Environment to make use of this toolset -- if calling
  `java -version` from your command prompt tells you have version 1.7 or higher, I bet you'll be
 fine.
@@ -11,20 +14,9 @@ fine.
 # Repository Highlights
 
 Use this repo as a way to get familiar with building a web API using an actor framework. Actors
-are great! They make it quite straight-forward to reason about concurrency without stumbling into
-false-sharing and other common pitfalls. The major code components to look at are:
+are great! They provide a straightforward way to reason about concurrency without stumbling into
+false-sharing, dead/livelocks, and other common pitfalls. The major code components to look at are:
 
-* [ClassifierServer.scala](src/main/scala/com/gawalt/papis_akka_demo/ClassifierServer.scala) -
-this file describes what socket the web API should listen to (`ClassifierServer.main()`),
-how requests should be parsed and handled (`ServiceActor.route`), where we should maintain state
-information about the model itself (`class Librarian`), and that stateful actor should be sent
-requests to process (the container classes `PredictMsg`, `ObserveMsg`, `StatusMsg`, `ResetMsg`).
-* [ClassifierClient.scala](src/main/scala/com/gawalt/papis_akka_demo/ClassifierClient.scala) -
-this is a simple routine to test out a particular text classification task. Movie review summaries,
-for either five-star or one-star appraisals, are read in from the TSV files kept in `resources/`,
-and sent off to the modelling service to be studied and classified. Note that it in generating
-predictions for these makes no reference to any class outside of the standard Scala library --
-it's only hitting the web API provided by a running instance of `ClassifierServer`.
 * [TextClassifier.scala](src/main/scala/com/gawalt/papis_akka_demo/TextClassifier.scala) --
 a simple Naive Bayes classifier for documents, treating each distinct word token as a
 [Bernoulli random variable](https://en.wikipedia.org/wiki/Bernoulli_distribution) when conditioned
@@ -32,33 +24,58 @@ on the document class. A mildly-biased estimate of each word's Bernoulli paramet
 by tracking the number of documents seen of each class, and the number of times each word token
 has appeared in documents of each class.
 
-# Starting up the service
+* [LoneLearnerServer.scala](src/main/scala/com/gawalt/papis_akka_demo/LoneLearnerServer.scala) -
+this file describes what socket the web API should listen to (in `LoneLearnerServer.main()`),
+how requests should be parsed and handled (in `LoneParser.route`), where we should maintain state
+information about the classification model itself (`class LoneLearner`), and the messages we'll use
+to interrogate and modify that stateful actor (the container classes `PredictMsg`, `ObserveMsg`, 
+`StatusMsg`, `ResetMsg`).
+
+* [LoneLearnerClient.scala](src/main/scala/com/gawalt/papis_akka_demo/LoneLearnerClient.scala) -
+this is a simple routine to test out a particular text classification task. Movie review summaries,
+for either five-star or one-star appraisals, are read in from the TSV files kept in `resources/`,
+and sent off to the modelling service to be studied and classified. Note that it in generating
+predictions for these makes no reference to any class outside of the standard Scala library --
+it's only hitting the web API provided by a running instance of `LoneLearnerServer`.
+
+* [PackLearnerServer.scala](src/main/scala/com/gawalt/papis_akka_demo/PackLearnerServer.scala) -
+like its `LoneLearner` counterpart, this file lets you bring up a text classification service.
+The API is identical, but under the hood, it's attempting to make use of several classifiers 
+running concurrently, which in theory could lead to reduced latency of requests (at the risk of
+delayed accuracy).
+
+* [PackLearnerClient.scala](src/main/scala/com/gawalt/papis_akka_demo/PackLearnerClient.scala) -
+identical to `LoneLearnerClient`, except that it looks for a running instance of `PackLearnerServer`
+for its web API.
+
+
+# Starting up the `LoneLearner` service
 
 This codebase runs through [SBT](http://www.scala-sbt.org). To launch the service, we'll pass SBT
-an argument telling it to run the `main()` routine in the `ClassifierServer` object. This will
+an argument telling it to run the `main()` routine in the `LoneLearnerServer` object. This will
 then kick off compilation of the code, then execute it:
 
 ```
-$ sbt/sbt 'runMain com.gawalt.papis_akka_demo.ClassifierServer'
+$ sbt/sbt 'runMain com.gawalt.papis_akka_demo.LoneLearnerServer'
 [info] Set current project to papis-akka-demo (in build file:/Users/bgawalt/papis-akka-demo/)
 [info] Updating {file:/Users/bgawalt/papis-akka-demo/}papis-akka-demo...
 [info] Resolving org.fusesource.jansi#jansi;1.4 ...
 [info] Done updating.
 [info] Compiling 6 Scala sources to /Users/bgawalt/papis-akka-demo/target/scala-2.10/classes...
-[info] Running com.gawalt.papis_akka_demo.ClassifierServer 
+[info] Running com.gawalt.papis_akka_demo.LoneLearnerServer 
 [INFO] [10/12/2015 10:50:29.749] [papis-akka-demo-akka.actor.default-dispatcher-2] [akka://papis-akka-demo/user/IO-HTTP/listener-0] Bound to localhost/127.0.0.1:12345
 ```
 
 That final `[INFO]` line, once it appears, tells us that the program is listening on socket 
 127.0.0.1:8080. (You can switch up the exact port by modifying line 25 in 
-`com/gawalt/papis_akka_demo/ClassifierServer.scala` -- the field named `SERVICE_PORT`.) 
+`com/gawalt/papis_akka_demo/LoneLearnerServer.scala` -- the field named `SERVICE_PORT`.) 
 You now have a service ready to construct a text classifier from example documents you provide it,
 and to apply that learned model to new documents you ask it to score.
  
-# Using the service
+# The Service API
 
 Once it's up and running, you can start interacting with the service via HTTP requests to five 
-paths: `hello`, `observe`, `predict`, `status`, and `reset`.
+paths: `/hello`, `/observe`, `/predict`, `/status`, and `/reset`.
 
 ### http://localhost:12345/hello/some_text/to_echo
 
@@ -152,7 +169,7 @@ returns the new zeroed-out status:
 
 ![reset request](/doc/fig/reset_request.png)
 
-# Evaluating the service
+# Evaluating the `LoneLearner` service
 
 To let you try out the classifier on a large, real-world dataset, I've contrived a classification
 problem: from the headline alone, can the model learn the difference between 1-star and 5-star
@@ -237,32 +254,20 @@ about-- and we can see that error rates immediately drop below 1%:
 
 Woe betide thee, o over-fitter!
 
-# Concurrency
+# Concurrency and `PackLearnerServer`
 
-On my MacBook Pro, we can see the `ClassifierClient` experiment issue 20,000 sequential predict and
+On my MacBook Pro, we can see the `LoneLearnerClient` experiment issue 20,000 sequential predict and
 observation calls in 46 seconds, putting a lower bound on throughput at around 430
 predict-then-observe pairs per second, or about 2 milliseconds per predict-observe pair. That's
 not so bad, given that anyone using a website that relies on this service is probably in for
-75-100 milliseconds of render time anyway -- another 2 ms isn't breaking the bank.
+75-100 milliseconds of load-and-render time anyway -- another 2 ms isn't breaking the bank.
 
 But the whole appeal of the Actor model is to try and expose concurrency in an easy-to-reason-about
 way, so that the throughput can be made not just "good enough" but genuinely optimal. The current
-architecture isn't set up to truly do that.
+architecture isn't set up to truly do that. It bottlenecks at the single classifier.
 
-It's true that a new Actor is spun up to handle each request sent to the service API.
-So things like parsing the request paths, validating them, and preparing the arguments for the
-model can happen in parallel if multiple users are issuing concurrent calls.
-
-But unfortunately, the whole operation bottlenecks when it's time to actually use the model itself.
-Interesting we want to do involves interacting with the `librarian` actor instantiated on line
-31 of `ClassifierServer.scala`. This actor holds the text classifier as part of its private state.
-Every prediction requested or update issued has to be fully completed before a `librarian` can
-move onto the next one in line. That's a huge portion of our computational load that's
-resistant to parallelization, setting an awful low
-[Amdahl's Law](https://en.wikipedia.org/wiki/Amdahl%27s_law) performance ceiling.
-
-Keep your eyes on this space, though -- I have a possible alternative architecture in mind that
-could help address this.
+`PackLearnerServer` instead brings up 10 separate models, and relays API requests to them one after
+the other.
 
 # PAPIs 2015
 
