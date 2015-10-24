@@ -3,13 +3,10 @@ package com.gawalt.papis_akka_demo
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-
 /**
- * This source file created by Brian Gawalt, 10/11/15.
- * It is subject to the MIT license bundled with this package in the file LICENSE.txt.
- * Copyright (c) Brian Gawalt, 2015
+ * Authored by bgawalt on 10/23/15.
  */
-object ClassifierClient {
+object PackLearnerClient {
 
   /**
    * Attempts to contact the text classification service running on localhost at the port
@@ -22,7 +19,7 @@ object ClassifierClient {
    *         belongs in the positive class.
    */
   def getPrediction(review: String): Try[Boolean] = Try({
-    val url = s"http://localhost:${LoneLearnerServer.SERVICE_PORT}/predict" +
+    val url = s"http://localhost:${PackLearnerServer.SERVICE_PORT}/predict" +
       s"/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n").toDouble > 0
   })
@@ -37,7 +34,7 @@ object ClassifierClient {
    * @return If successful, the classification model's status, post-update
    */
   def issueUpdate(label: Boolean, review: String) : Try[String] = Try({
-    val url = s"http://localhost:${LoneLearnerServer.SERVICE_PORT}/observe" +
+    val url = s"http://localhost:${PackLearnerServer.SERVICE_PORT}/observe" +
       s"/$label/${review.replaceAll("[^a-zA-Z]", "")}"
     io.Source.fromURL(url).getLines().mkString("\n")
   })
@@ -91,8 +88,8 @@ object ClassifierClient {
       .map(es => (es.count(b => b), es.length))  // Count num. of errors and total num. predictions
       .zipWithIndex          // Get the index of each bin
       .foreach({case ((numErrors, numTotal), binIdx) =>
-        println(s"Reviews ${500*binIdx + 1} - ${500*binIdx + numTotal}:\t" + // Bin ranges
-          s"${numErrors.toDouble/numTotal}")})  // Bin accuracy
+      println(s"Reviews ${500*binIdx + 1} - ${500*binIdx + numTotal}:\t" + // Bin ranges
+        s"${numErrors.toDouble/numTotal}")})  // Bin accuracy
     println("")
 
   }

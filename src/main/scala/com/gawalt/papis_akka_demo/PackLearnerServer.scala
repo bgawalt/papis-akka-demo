@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
 /**
  * Authored by bgawalt on 10/23/15.
  */
-class PackLearnerServer {
+object PackLearnerServer {
 
   /** The port on localhost that our HTTP API should listen to when fielding requests */
   val SERVICE_PORT = 12346
