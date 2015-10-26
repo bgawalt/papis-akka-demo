@@ -5,7 +5,7 @@ an HTTP API, built using an actor framework. It makes use of Scala's Akka and Sp
 to let you train and utilize a simple, two-class text classifier.
 
 To get up to speed, first read about the project that inspired this tutorial project in the full 
-report about data science and concurrency: [Deploying predictive models with the actor framework](file://doc/papis_akka_demo.pdf)
+report about data science and concurrency: [Deploying predictive models with the actor framework](doc/papis_akka_demo.pdf)
 
 You shouldn't need more than a Java Runtime Environment to make use of this toolset -- if calling
  `java -version` from your command prompt tells you have version 1.7 or higher, I bet you'll be
