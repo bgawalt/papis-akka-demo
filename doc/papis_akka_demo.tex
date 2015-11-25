@@ -415,24 +415,23 @@ garbage collection.} needs to take a break to let the other raw material harvest
 use the execution thread. The rate of availability score production can be maxed out 
 by taking full, round-the-clock advantage of the rate-limited resource.
 
-\begin{figure}
-\begin{subfigure}{.5\textwidth}
-	\centering
-	\includegraphics[width=.95\linewidth]{fig/tex/availability_serial.png}
-	\caption{Sequential operation}
-	\label{fig_avail_serial}
-\end{subfigure}
-\begin{subfigure}{.5\textwidth}
-	\centering
-	\includegraphics[width=.95\linewidth]{fig/tex/availability_concurrent.png}
-	\caption{Parallel operation}
-	\label{fig_avail_concur}
-	\end{subfigure}
-\caption{The computation cycle for availability in its sequential and concurrent
+\begin{figure}[htbp]
+\floatconts
+{fig_avail_serial_concur}
+{\caption{The computation cycle for availability in its sequential and concurrent
 formulations, on a four-CPU system. When data is kept to within one hour of
 freshness, the actor model provides an approximately 3.75-fold increase in
-throughput}
-\label{fig_avail_serial_concur}
+throughput.}}
+{
+  \subfigure[Sequential operation]{
+    \label{fig_avail_serial}
+    \includegraphics[width=.75\linewidth]{fig/tex/availability_serial.png}
+  }
+  \subfigure[Parallel operation]{
+    \label{fig_avail_concur}
+    \includegraphics[width=.75\linewidth]{fig/tex/availability_concurrent.png}
+  }
+}
 \end{figure}
 
 The actually-implemented availability system, now running as a service on 
@@ -480,7 +479,7 @@ It's a convenient way to interact with an actor system.
 
 The demo project involves two approaches to the same binary classification task,
 implemented as two separate API servers: \texttt{LoneLearnerServer} and
-\\* \texttt{PackLearnerServer}. These APIs are backed by two types of actor: the request
+\texttt{PackLearnerServer}. These APIs are backed by two types of actor: the request
 parser and the learner. 
 
 The request parser, one per server, inherits from Spray's \texttt{HttpServiceActor},
@@ -620,7 +619,7 @@ frontiers of their profession. They should consider adding the actor
 framework to their toolkit.
 
 \bibliography{papis_akka_demo_bib}
-\bibliographystyle{plain}
+%\bibliographystyle{plain}
 
 \end{document}
 
