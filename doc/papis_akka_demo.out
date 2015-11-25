@@ -1,0 +1,13 @@
+\BOOKMARK [1][-]{section.0.1}{The practice of machine learning}{}% 1
+\BOOKMARK [2][-]{subsection.0.1.1}{Moving to production}{section.0.1}% 2
+\BOOKMARK [2][-]{subsection.0.1.2}{Complexity costs}{section.0.1}% 3
+\BOOKMARK [1][-]{section.0.2}{Case Study: Predicting worker availability at Upwork}{}% 4
+\BOOKMARK [2][-]{subsection.0.2.1}{Building the predictive model}{section.0.2}% 5
+\BOOKMARK [2][-]{subsection.0.2.2}{Throughput constraints in production}{section.0.2}% 6
+\BOOKMARK [2][-]{subsection.0.2.3}{Concurrency under the actor model}{section.0.2}% 7
+\BOOKMARK [3][-]{subsubsection.0.2.3.1}{The actor model}{subsection.0.2.3}% 8
+\BOOKMARK [3][-]{subsubsection.0.2.3.2}{The concurrent availability system}{subsection.0.2.3}% 9
+\BOOKMARK [1][-]{section.0.3}{Case study: a text classification API}{}% 10
+\BOOKMARK [2][-]{subsection.0.3.1}{Scala, Akka, and Spray}{section.0.3}% 11
+\BOOKMARK [2][-]{subsection.0.3.2}{Text classification servers}{section.0.3}% 12
+\BOOKMARK [1][-]{section.0.4}{Conclusion}{}% 13

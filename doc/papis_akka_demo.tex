@@ -1,14 +1,16 @@
-\documentclass{article}
+%\documentclass{article}
+\documentclass[tablecaption=bottom,wcp]{jmlr}
+
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{url}
 
+
 \begin{document}
 
 \title{Deploying predictive models with the actor framework}
-\author{Brian Gawalt \\
-Upwork, Inc. \\
-\texttt{bgawalt@upwork.com}
+\author{\Name{Brian Gawalt}
+\Email{bgawalt@upwork.com}
 }
 
 \maketitle
@@ -53,8 +55,8 @@ the pattern you're trying to learn and predict.
 and a scalar label.
  \item Split this collection into disjoint training, validation, and testing
 sets.
- \item For each candidate model (and/or each hyperparameter value of the
-model/models), fit model parameters to the training vectors and labels, and
+ \item For each candidate model (and/or each of the model's hyperparameters
+ ), fit model parameters to the training vectors and labels, and
 evaluate the goodness of fit by performing prediction of the validation labels
 given the validation vectors
  \item Select the model whose validation-set predictions came closest to the
@@ -141,7 +143,7 @@ the single machine learning specialist.
  This paper is here to specifically recommend a midpoint between a from-scratch
 concurrent framework and the mega-scale offerings. The actor framework offers a
 simple way to reason through concurrent problems, while still being flexible
-enough to accommodate a variety of approaches to any one problem. The ease
+enough to accommodate a variety of approaches to any one problem.
 
  From here, this paper presents a case study where an actor framework was key to
 bringing a predictive model to production. It interleaves this story with a
@@ -176,10 +178,10 @@ with.}
  This adds a third requirement to the query's result set: listed freelancers
 should not only be relevant and high-performing, they should also be receptive
 to an interview invitation at the time of the query. If the system returns a
-list of the same ten excellent freelancers are returned for every search for
-``wordpress template,'' it's a recipe for those ten freelancers being deluged
-with opportunities they're to busy to fill (and for the freelancers ranked just
-outside that top ten being unreasonably starved for job invitations).
+list of the same ten excellent freelancers for every search for
+``wordpress template,'' it's likely that those ten freelancers will wind up deluged
+with opportunities they're too busy to fill, and for the freelancers ranked just
+outside that top ten being disproportionately starved for job invitations.
 
  There was an existing heuristic in place to try and capture this, but it was
 felt a learned model trained on historical data could easily provide higher
@@ -296,7 +298,7 @@ availability system. An actor framework involves three components:
 
 \begin{description}
 \item[The Actors] A collection of objects, each holding a message queue, some 
-private state, and some private methods. This state is can only be updated, and
+private state, and some private methods. This state can only be updated, and
 these methods can only be called, by the actor object itself, and in response to 
 receiving a message from some other actor. The response an actor takes to each
 message is fully completed before it begins its response to the next message.
@@ -318,8 +320,10 @@ other immutable message objects.
 The actor model rose to prominence in an artificial intelligence context thanks to
 work from Hewitt, Bishop, and Stieger.~\cite{hewitt1973ijcai} It's true that compared
 to classical imperative programming ``it imposes a major mind shift in software
-design,''~\cite{korland2011thesis} it's a comparatively small leap with respect, with
-fewer pitfalls for novice (or harried) developers to hazard.
+design.''~\cite{korland2011thesis} But it's decidedly less intense than the 
+large-scale, distributed alternatives described above, and lets novice or 
+over-worked developers avoid the easy pitfalls of writing one's own 
+stateful multithreading routines.
 
 \subsubsection{The concurrent availability system}
 
@@ -375,7 +379,7 @@ rankings.
 
 This family of actors, along with arrows indicating the principal flow of information 
 from raw material, to feature vector, to availability score, is depicted in
-Figure~\ref{fig_av_system}. It's a 
+Figure~\ref{fig_av_system}.
 
 \begin{figure}[h]
 \includegraphics[width=0.7\textwidth]{fig/tex/availability_system.png}
@@ -390,7 +394,7 @@ By dividing responsibility for the full scoring pipeline across several distinct
 the execution context is able to take their concurrent operations and schedule them
 for the operating system to perform. When the underlying machine offers multiple
 CPUs, this can mean the actors operate simultaneously, allowing for the 
-latency-reducing speed ups we were hoping for. And the single-file
+latency-reducing speed ups we were hoping for. With single-file
 processing of messages we avoid problems where, e.g., one step in the scoring 
 procedure tries to read its stored worked-hours data at the same time another
 step is updating that same data -- trying to square this circle from scratch
@@ -447,9 +451,9 @@ It is implemented in Scala, making use of the Akka~library~\cite{akka_doc}
 to handle the execution context and actor classes, and the Spray~library~\cite{spray_doc}
 to connect that execution context with HTTP requests from the outside world.
 
-\subsection{Scala, Akka and Spray}
+\subsection{Scala, Akka, and Spray}
 
-Scala is high level language, designed to allow for easy productivity when
+Scala is a high level language, designed to allow for easy productivity when
 developing in both functional programming and object-oriented styles. The
 Scala language allows developers to define \texttt{trait}s, ways to partially 
 define class features. Declared attributes can be implemented right
@@ -468,11 +472,15 @@ exactly as we'd expect: the actor can receive any kind of message, and then does
 something. The \texttt{match} keyword makes it easy to encode reactions to different
 expected message types, and provide a default ``unexpected command'' behavior.
 
+Spray then builds on Akka by offering a trait of Actor which can handle HTTP 
+requests and responses in the same asynchronous, message-passing style.
+It's a convenient way to interact with an actor system.
+
 \subsection{Text classification servers}
 
 The demo project involves two approaches to the same binary classification task,
 implemented as two separate API servers: \texttt{LoneLearnerServer} and
-\texttt{PackLearnerServer}. These APIs are backed by two types of actor: the request
+\\* \texttt{PackLearnerServer}. These APIs are backed by two types of actor: the request
 parser and the learner. 
 
 The request parser, one per server, inherits from Spray's \texttt{HttpServiceActor},
@@ -584,23 +592,26 @@ makes it easy to expose and capitalize on greater amounts of concurrency:
 info and sharing tasks?
 \end{itemize}
 
-There is a scale where the actor framework and its concurrency is overkill.
-Some machine-learned models only needs to produce new scores 
-infrequently enough -- a new batch overnight, say -- that allows for the exact
+For smaller scale operations, where the actor framework and its concurrency 
+is overkill. Some machine learning applications will need only produce 
+new predictions infrequently enough -- a new batch overnight, say -- to allow
+for the exact
 same routines to be used ``in the wild'' as were used for designing, validating,
 and testing the model ``in the lab.'' The machine learning specialist might be
-of more use moving on to generate a new or better model, than to rig up
+of more use moving on to generate a new better model in a new domain, than 
+to rig up a highly concurrent solution.
 
-There is a scale where an actor framework starts requiring greater and greater
-care and maintenance. Without backpressure, overstuffed mailboxes can cause 
-fatal out-of-memory errors. Timed-out operations need to recover gracefully.
+As the load increases on an actor framework increases, greater care and
+maintenance is required. Without backpressure, overstuffed mailboxes can
+cause fatal out-of-memory errors. Timed-out operations need to recover gracefully.
 As these problems mount, the value proposition of large-scale platforms like
 Spark and Storm become more compelling.
 
-The actor framework helps the machine learning specialist bridge the gap 
-between these scenarios. It is capable enough to support medium-scale
-applications, especially given the present affordability of four, eight, sixteen
-core systems. It is simple enough that the specialist can assemble the
+But for that wide and intermediate range of problems between these 
+scenarios, the actor framework helps the machine learning specialist
+deliver great results. It is capable enough to support medium-scale
+applications, especially given the affordability and ubiquity of four, eight, 
+sixteen core systems. It is simple enough that the specialist can assemble the
 concurrent solution on their own: a production deployment from the same
 person who designed the model.
 
